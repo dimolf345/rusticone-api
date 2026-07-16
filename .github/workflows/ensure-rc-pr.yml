@@ -1,0 +1,47 @@
+name: Ensure RC Pull Request
+
+on:
+  push:
+    branches:
+      - "release-candidate/**"
+      - "rc/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ensure-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create pull request if missing
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.ref.replace('refs/heads/', '');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const existing = await github.rest.pulls.list({
+              owner,
+              repo,
+              base: 'develop',
+              head: `${owner}:${branch}`,
+              state: 'open'
+            });
+
+            if (existing.data.length > 0) {
+              core.info(`Pull request already exists for ${branch}`);
+              return;
+            }
+
+            const pr = await github.rest.pulls.create({
+              owner,
+              repo,
+              base: 'develop',
+              head: branch,
+              title: `Merge ${branch} into develop`,
+              body: 'Automated pull request created for the release-candidate branch.'
+            });
+
+            core.info(`Created pull request: ${pr.data.html_url}`);
