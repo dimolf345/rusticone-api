@@ -1,10 +1,10 @@
 services:
-  mongo:
+  mongo-test:
     image: mongo:7
-    ports:
-      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: rusticone-test
     volumes:
-      - mongo_data:/data/db
+      - mongo_data_test:/data/db
     healthcheck:
       test:
         [
@@ -19,19 +19,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    ports:
-      - "3000:3000"
     environment:
-      NODE_ENV: development
-      PORT: 3000
-      MONGODB_URI: mongodb://mongo:27017/rusticone-dev
-    depends_on:
-      mongo:
-        condition: service_healthy
+      NODE_ENV: test
+      MONGODB_URI: mongodb://mongo-test:27017/rusticone-test
     volumes:
       - .:/app
       - /app/node_modules
+    depends_on:
+      mongo-test:
+        condition: service_healthy
     command: npm run dev
 
 volumes:
-  mongo_data:
+  mongo_data_test:
