@@ -14,3 +14,26 @@ This keeps the structure predictable without adding unnecessary layers.
 - `npm run build` - compile TypeScript to `dist/`
 - `npm run start` - run the compiled server
 - `npm run typecheck` - run the TypeScript compiler without emitting files
+
+## MongoDB
+
+Copy `.env.example` to `.env` when running the API locally. The development
+Docker Compose setup starts MongoDB 7 and connects using
+`mongodb://mongo:27017/rusticone-dev`:
+
+```sh
+npm run docker:dev
+```
+
+For production, provide an external MongoDB connection string through
+`MONGODB_URI` before starting Compose. Authentication is supported by putting
+credentials in that URI; do not commit them to the repository.
+
+The test Compose setup uses a separate MongoDB container and database:
+
+```sh
+docker compose -f docker-compose.test.yml up --build
+```
+
+The application retries failed MongoDB connections five times by default.
+Override `MONGODB_MAX_RETRIES` and `MONGODB_RETRY_DELAY_MS` as needed.
