@@ -47,7 +47,7 @@ describe("Google auth flow", () => {
     });
 
     afterEach(async () => {
-        await UserModel.deleteMany({});
+        await UserModel.deleteMany({ authProviderUserId: testGoogleProfile.authProviderUserId });
     });
 
     test("creates a user on first Google sign-up and logs in on the second request", async () => {

@@ -44,6 +44,105 @@ export const openApiDocument = {
                     }
                 }
             }
+        },
+        "/users": {
+            post: {
+                summary: "Create a user",
+                tags: ["users"],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: { $ref: "#/components/schemas/UserInput" }
+                        }
+                    }
+                },
+                responses: {
+                    201: { description: "User created successfully" },
+                    500: { description: "Unable to create the user" }
+                }
+            },
+            get: {
+                summary: "List users",
+                tags: ["users"],
+                parameters: [
+                    { name: "page", in: "query", schema: { type: "integer", minimum: 1 } },
+                    { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 100 } }
+                ],
+                responses: {
+                    200: { description: "Paginated user list" },
+                    500: { description: "Unable to list users" }
+                }
+            }
+        },
+        "/users/{id}": {
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "string" } }
+            ],
+            get: {
+                summary: "Get a user",
+                tags: ["users"],
+                responses: {
+                    200: { description: "User found" },
+                    404: { description: "User not found" },
+                    500: { description: "Unable to get the user" }
+                }
+            },
+            patch: {
+                summary: "Update a user",
+                tags: ["users"],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: { $ref: "#/components/schemas/UserUpdate" }
+                        }
+                    }
+                },
+                responses: {
+                    200: { description: "User updated successfully" },
+                    404: { description: "User not found" },
+                    500: { description: "Unable to update the user" }
+                }
+            },
+            delete: {
+                summary: "Delete a user",
+                tags: ["users"],
+                responses: {
+                    204: { description: "User deleted successfully" },
+                    404: { description: "User not found" },
+                    500: { description: "Unable to delete the user" }
+                }
+            }
+        }
+    },
+    components: {
+        schemas: {
+            UserInput: {
+                type: "object",
+                required: ["email", "name", "authProvider", "authProviderUserId"],
+                properties: {
+                    role: { type: "string", enum: ["admin", "customer"] },
+                    email: { type: "string", format: "email" },
+                    name: { type: "string" },
+                    authProvider: { type: "string", enum: ["google"] },
+                    authProviderUserId: { type: "string" },
+                    avatarUrl: { type: "string", format: "uri" },
+                    emailVerified: { type: "boolean" }
+                }
+            },
+            UserUpdate: {
+                type: "object",
+                properties: {
+                    role: { type: "string", enum: ["admin", "customer"] },
+                    email: { type: "string", format: "email" },
+                    name: { type: "string" },
+                    authProvider: { type: "string", enum: ["google"] },
+                    authProviderUserId: { type: "string" },
+                    avatarUrl: { type: "string", format: "uri" },
+                    emailVerified: { type: "boolean" }
+                }
+            }
         }
     }
 } as const;

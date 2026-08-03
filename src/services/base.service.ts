@@ -70,7 +70,7 @@ export abstract class BaseService<
   async update(id: string, data: TUpdate): Promise<TEntity | null> {
     return this.model
       .findByIdAndUpdate(id, data as Partial<TEntity>, {
-        new: true,
+        returnDocument: "after",
         runValidators: true
       })
       .exec() as Promise<TEntity | null>;

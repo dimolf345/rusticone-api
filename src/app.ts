@@ -5,6 +5,7 @@ import helmet from "helmet";
 import { openApiDocument } from "./openapi.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
+import { userRouter } from "./routes/user.js";
 
 export const app = express();
 
@@ -18,3 +19,4 @@ app.get("/openapi.json", (_request, response) => {
 
 app.use("/auth", authRouter);
 app.use("/health", healthRouter);
+app.use("/users", userRouter);
