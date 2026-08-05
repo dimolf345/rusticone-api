@@ -96,12 +96,25 @@ function signAccessToken(user: UserDocument, jwtSecret: string, jwtExpiresIn: st
     );
 }
 
+function resolveJwtSecret(suppliedSecret?: string): string {
+    const secret = suppliedSecret ?? process.env.JWT_SECRET;
+
+    if (!secret) {
+        if (process.env.NODE_ENV === "production") {
+            throw new Error("JWT_SECRET environment variable is missing in production.");
+        }
+        return defaultJwtSecret;
+    }
+
+    return secret;
+}
+
 export async function authenticateWithGoogle(
     idToken: string,
     dependencies: GoogleAuthServiceDependencies = {}
 ): Promise<AuthenticatedGoogleUserResponse> {
     const verifyGoogleIdToken = dependencies.verifyGoogleIdToken ?? createGoogleIdTokenVerifier();
-    const jwtSecret = dependencies.jwtSecret ?? defaultJwtSecret;
+    const jwtSecret = resolveJwtSecret(dependencies.jwtSecret);
     const jwtExpiresIn = dependencies.jwtExpiresIn ?? defaultJwtExpiresIn;
 
     if (!idToken.trim()) {
@@ -111,7 +124,8 @@ export async function authenticateWithGoogle(
     const profile = await verifyGoogleIdToken(idToken);
     const now = new Date();
 
-    const existingUser = await UserModel.findOne({
+    // Fetch up to 2 matches to detect ambiguous identity states
+    const matchingUsers = await UserModel.find({
         $or: [
             {
                 authProvider: AUTH_PROVIDERS.Google,
@@ -121,21 +135,13 @@ export async function authenticateWithGoogle(
                 email: profile.email
             }
         ]
-    });
+    }).limit(2);
 
     let user: UserDocument;
     let isNewUser = false;
 
-    if (existingUser) {
-        existingUser.authProvider = AUTH_PROVIDERS.Google;
-        existingUser.authProviderUserId = profile.authProviderUserId;
-        existingUser.email = profile.email;
-        existingUser.name = profile.name;
-        existingUser.avatarUrl = profile.avatarUrl;
-        existingUser.emailVerified = profile.emailVerified;
-        existingUser.lastLoginAt = now;
-        user = await existingUser.save();
-    } else {
+    if (matchingUsers.length === 0) {
+        // Case 1: Brand new user
         user = await UserModel.create({
             role: USER_ROLES.Customer,
             email: profile.email,
@@ -147,6 +153,32 @@ export async function authenticateWithGoogle(
             lastLoginAt: now
         });
         isNewUser = true;
+    } else if (matchingUsers.length === 1) {
+        // Case 2: Unambiguous match
+        const matchedUser = matchingUsers[0];
+
+        // Fail fast if an existing account has this email but belongs to a different Google ID
+        if (
+            matchedUser.authProvider === AUTH_PROVIDERS.Google &&
+            matchedUser.authProviderUserId !== profile.authProviderUserId
+        ) {
+            throw new AuthError("Email is associated with a different Google account.", 409);
+        }
+
+        matchedUser.authProvider = AUTH_PROVIDERS.Google;
+        matchedUser.authProviderUserId = profile.authProviderUserId;
+        matchedUser.email = profile.email;
+        matchedUser.name = profile.name;
+        matchedUser.avatarUrl = profile.avatarUrl;
+        matchedUser.emailVerified = profile.emailVerified;
+        matchedUser.lastLoginAt = now;
+        user = await matchedUser.save();
+    } else {
+        // Case 3: Ambiguous match (1 user matched on email, 1 matched on Google ID)
+        throw new AuthError(
+            "Ambiguous identity: multiple accounts match the provider ID and email.",
+            409
+        );
     }
 
     return {

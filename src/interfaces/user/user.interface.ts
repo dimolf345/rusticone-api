@@ -24,7 +24,7 @@ export interface CustomerUser extends BaseUser {
 }
 
 export interface StoredUser extends BaseUser {
-  emailVerified: boolean;
+  emailVerified?: boolean;
   lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;

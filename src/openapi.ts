@@ -67,7 +67,8 @@ export const openApiDocument = {
                 tags: ["users"],
                 parameters: [
                     { name: "page", in: "query", schema: { type: "integer", minimum: 1 } },
-                    { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 100 } }
+                    { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 100 } },
+                    { name: "email", in: "query", schema: { type: "string" } }
                 ],
                 responses: {
                     200: { description: "Paginated user list" },

@@ -26,7 +26,7 @@ npm run docker:dev
 ```
 
 For production, provide an external MongoDB connection string through
-`MONGODB_URI` before starting Compose. Authentication is supported by putting
+`MONGO_INITDB_DATABASE` before starting Compose. Authentication is supported by putting
 credentials in that URI; do not commit them to the repository.
 
 The test Compose setup uses a separate MongoDB container and database:

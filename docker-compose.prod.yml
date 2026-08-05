@@ -8,5 +8,5 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      MONGODB_URI: ${MONGODB_URI:?MONGODB_URI must be set}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:?MONGO_INITDB_DATABASE must be set}
     command: npm run start

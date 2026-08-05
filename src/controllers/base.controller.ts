@@ -88,32 +88,38 @@ export abstract class BaseController<
     private createFindAllOptions(
         query: Request["query"]
     ): FindAllOptions<TEntity> {
-        const filter: Record<string, unknown> = {};
+        // Created with null prototype to prevent prototype pollution
+        const filter: Record<string, unknown> = Object.create(null);
 
-        for (const [key, value] of Object.entries(query ?? {})) {
-            if (
-                key === "page" ||
-                key === "limit" ||
-                key.startsWith("$") ||
-                key.includes(".")
-            ) {
-                continue;
-            }
+        if (query && typeof query === "object") {
+            for (const [key, value] of Object.entries(query)) {
+                if (
+                    key === "page" ||
+                    key === "limit" ||
+                    key === "__proto__" ||
+                    key === "constructor" ||
+                    key.startsWith("$") ||
+                    key.includes(".")
+                ) {
+                    continue;
+                }
 
-            if (typeof value === "string") {
-                filter[key] = value;
-            } else if (
-                Array.isArray(value) &&
-                value.every((item) => typeof item === "string")
-            ) {
-                filter[key] = { $in: value };
+                if (typeof value === "string") {
+                    filter[key] = value;
+                } else if (
+                    Array.isArray(value) &&
+                    value.length > 0 &&
+                    value.every((item) => typeof item === "string")
+                ) {
+                    filter[key] = { $in: value };
+                }
             }
         }
 
         return {
             filter: filter as EntityFilter<TEntity>,
-            page: parsePositiveInteger(query.page, DEFAULT_PAGE),
-            limit: parsePositiveInteger(query.limit, DEFAULT_LIMIT, MAX_LIMIT)
+            page: parsePositiveInteger(query?.page, DEFAULT_PAGE),
+            limit: parsePositiveInteger(query?.limit, DEFAULT_LIMIT, MAX_LIMIT)
         };
     }
 

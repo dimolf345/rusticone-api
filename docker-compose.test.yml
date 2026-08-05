@@ -4,7 +4,7 @@ services:
     ports:
       - "27018:27017"
     environment:
-      MONGODB_URI: rusticone-test
+      MONGO_INITDB_DATABASE: rusticone-test
     volumes:
       - mongo_data_test:/data/db
     healthcheck:
@@ -23,7 +23,7 @@ services:
       dockerfile: Dockerfile.dev
     environment:
       NODE_ENV: test
-      MONGODB_URI: mongodb://mongo-test:27017/rusticone-test
+      MONGO_INITDB_DATABASE: mongodb://mongo-test:27017/rusticone-test
     volumes:
       - .:/app
       - /app/node_modules
