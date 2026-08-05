@@ -6,6 +6,7 @@ export interface Session {
   userAgent?: string;
   ipAddress?: string;
   createdAt: Date;
+  expiresAt: Date;
 }
 
 export type SessionDocument = HydratedDocument<Session>;
@@ -27,8 +28,12 @@ const sessionSchema = new Schema<Session>(
     ipAddress: String,
     createdAt: {
       type: Date,
-      default: Date.now,
-      expires: "7d"
+      default: Date.now
+    },
+    expiresAt: {
+      type: Date,
+      required: true,
+      expires: 0
     }
   },
   {

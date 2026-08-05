@@ -26,6 +26,8 @@ export interface CustomerUser extends BaseUser {
 export interface StoredUser extends BaseUser {
   emailVerified?: boolean;
   lastLoginAt?: Date;
+  password?: string;
+  googleId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

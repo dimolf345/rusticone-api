@@ -15,7 +15,7 @@ JWT_REFRESH_EXPIRES_IN=7d
 
 Both secrets are required. Use separate, securely generated values in deployed environments. The expiration variables are optional and default to `15m` for access tokens and `7d` for refresh tokens.
 
-Refresh-token session documents have a seven-day MongoDB TTL. Keep `JWT_REFRESH_EXPIRES_IN` at or below seven days so the token does not outlive its stored session.
+Each refresh-token session stores the expiration timestamp from the token's signed `exp` claim. A MongoDB TTL index removes the session at that timestamp, so changing `JWT_REFRESH_EXPIRES_IN` keeps token and session expiration synchronized.
 
 ## Authentication Flow
 

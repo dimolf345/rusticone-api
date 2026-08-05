@@ -1,7 +1,7 @@
+import express from "express";
+import mongoose from "mongoose";
 import assert from "node:assert/strict";
 import { after, afterEach, before, describe, test } from "node:test";
-import mongoose from "mongoose";
-import express from "express";
 
 
 import { app } from "../app.js";
@@ -10,9 +10,11 @@ import { SessionModel, UserModel } from "../models/index.js";
 import { openApiDocument } from "../openapi.js";
 import { createAuthRouter } from "./auth.js";
 
+import { verifyRefreshToken } from "../utils/jwt.js";
 
 process.env.JWT_ACCESS_SECRET = "test-access-secret";
 process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
+process.env.JWT_REFRESH_EXPIRES_IN = "30d";
 
 interface AuthResponse {
   accessToken: string;
@@ -200,9 +202,15 @@ describe("authentication API", () => {
     assert.ok(storedUser?.password);
     assert.notEqual(storedUser.password, "secure-password");
     assert.equal(await storedUser.comparePassword("secure-password"), true);
+    const session = await SessionModel.findOne({ userId: storedUser._id });
+    assert.ok(session);
+    const refreshTokenPayload = verifyRefreshToken(registered.refreshToken);
     assert.equal(
-      await SessionModel.countDocuments({ userId: storedUser._id }),
-      1
+      session.expiresAt.getTime(),
+      refreshTokenPayload.expiresAt.getTime()
+    );
+    assert.ok(
+      session.expiresAt.getTime() - Date.now() > 29 * 24 * 60 * 60 * 1000
     );
 
     const profileResponse = await fetch(`${baseUrl}/api/auth/me`, {
