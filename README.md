@@ -8,6 +8,10 @@ The codebase is organized by scope rather than by feature. Because this project 
 
 This keeps the structure predictable without adding unnecessary layers.
 
+## Documentation
+
+- [Authentication and sessions](docs/authentication.md)
+
 ## Scripts
 
 - `npm run dev` - start the server in watch mode
