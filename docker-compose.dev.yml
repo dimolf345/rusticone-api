@@ -24,7 +24,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-      MONGODB_URI: mongodb://mongo:27017/rusticone-dev
+      MONGO_INITDB_DATABASE: mongodb://mongo:27017/rusticone-dev
     depends_on:
       mongo:
         condition: service_healthy

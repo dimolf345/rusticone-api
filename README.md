@@ -26,14 +26,18 @@ npm run docker:dev
 ```
 
 For production, provide an external MongoDB connection string through
-`MONGODB_URI` before starting Compose. Authentication is supported by putting
+`MONGO_INITDB_DATABASE` before starting Compose. Authentication is supported by putting
 credentials in that URI; do not commit them to the repository.
 
 The test Compose setup uses a separate MongoDB container and database:
 
 ```sh
-docker compose -f docker-compose.test.yml up --build
+npm test
 ```
+
+The test MongoDB is exposed on host port `27018`, while development MongoDB
+continues to use port `27017`. The Compose test API connects to MongoDB using
+the internal address `mongo-test:27017`.
 
 The application retries failed MongoDB connections five times by default.
 Override `MONGODB_MAX_RETRIES` and `MONGODB_RETRY_DELAY_MS` as needed.

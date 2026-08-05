@@ -8,7 +8,7 @@ const retryDelayMs =
   Number.isFinite(retryDelayMsEnv) && retryDelayMsEnv >= 0 ? retryDelayMsEnv : 2000;
 
 export async function connectDatabase(): Promise<void> {
-  const mongoUri = process.env.MONGODB_URI ?? defaultMongoUri;
+  const mongoUri = process.env.MONGO_INITDB_DATABASE ?? defaultMongoUri;
 
   for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
     try {
