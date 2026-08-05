@@ -1,23 +1,34 @@
-import mongoose, { Schema, type HydratedDocument } from "mongoose";
+import mongoose, { Schema, type HydratedDocument, type Model } from "mongoose";
 import type { AdminUser, CustomerUser, StoredUser } from "../interfaces/user/index.js";
+import bcrypt from "bcryptjs";
 
 export const USER_ROLES = {
   Admin: "admin",
   Customer: "customer"
 } as const;
 
+
 export const AUTH_PROVIDERS = {
+  Local: "local",
   Google: "google"
 } as const;
 
-export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
+
+interface UserMethods {
+  comparePassword(candidatePassword: string): Promise<boolean>;
+}
+
+type UserModelType = Model<StoredUser, object, UserMethods>;
+export type UserDocument = HydratedDocument<StoredUser, UserMethods>;
+
+
 export type AuthProvider = (typeof AUTH_PROVIDERS)[keyof typeof AUTH_PROVIDERS];
+
+export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
 
 export type User = AdminUser | CustomerUser;
 
-export type UserDocument = HydratedDocument<StoredUser>;
-
-const userSchema = new Schema<StoredUser>(
+const userSchema = new Schema<StoredUser, UserModelType, UserMethods>(
   {
     role: {
       type: String,
@@ -36,12 +47,22 @@ const userSchema = new Schema<StoredUser>(
     name: {
       type: String,
       required: true,
+      unique: true,
+      lowercase: true,
       trim: true
+    },
+    password: {
+      type: String,
+      select: false,
+      required(this: StoredUser) {
+        return this.authProvider === AUTH_PROVIDERS.Local;
+      }
     },
     authProvider: {
       type: String,
       enum: Object.values(AUTH_PROVIDERS),
-      required: true
+      required: true,
+      default: AUTH_PROVIDERS.Local,
     },
     authProviderUserId: {
       type: String,
@@ -61,12 +82,39 @@ const userSchema = new Schema<StoredUser>(
     },
     lastLoginAt: {
       type: Date
-    }
-  },
+    },
+    googleId: {
+      type: String,
+      default: null
+    },
+  } as unknown as StoredUser,
   {
     timestamps: true,
     versionKey: false
   }
 );
 
-export const UserModel = mongoose.models.User ?? mongoose.model<StoredUser>("User", userSchema);
+userSchema.pre("save", async function (this: UserDocument) {
+  if (!this.isModified("password") || !this.password) {
+    return;
+  }
+
+  this.password = await bcrypt.hash(this.password, 12);
+});
+
+userSchema.methods.comparePassword = async function (
+  this: UserDocument,
+  candidatePassword: string
+) {
+  const password = this.password as string | undefined;
+
+  if (!password) {
+    return false;
+  }
+
+  return bcrypt.compare(candidatePassword, password);
+};
+
+export const UserModel =
+  (mongoose.models.User as UserModelType | undefined) ??
+  mongoose.model<StoredUser, UserModelType>("User", userSchema);
