@@ -37,12 +37,14 @@ function serializeUser(user: UserDocument) {
 
 async function createSession(request: Request, user: UserDocument) {
   const refreshToken = generateRefreshToken(user);
+  const { expiresAt } = verifyRefreshToken(refreshToken);
 
   await SessionModel.create({
     userId: user._id,
     refreshToken,
     userAgent: request.header("user-agent"),
-    ipAddress: request.ip
+    ipAddress: request.ip,
+    expiresAt
   });
 
   return refreshToken;

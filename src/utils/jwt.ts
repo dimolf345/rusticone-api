@@ -11,6 +11,7 @@ export interface AccessTokenPayload {
 
 export interface RefreshTokenPayload {
   userId: string;
+  expiresAt: Date;
 }
 
 function getSecret(name: "JWT_ACCESS_SECRET" | "JWT_REFRESH_SECRET"): string {
@@ -63,11 +64,18 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
 export function verifyRefreshToken(token: string): RefreshTokenPayload {
   const payload = jwt.verify(token, getSecret("JWT_REFRESH_SECRET"));
 
-  if (!isJwtPayload(payload) || typeof payload.userId !== "string") {
+  if (
+    !isJwtPayload(payload) ||
+    typeof payload.userId !== "string" ||
+    typeof payload.exp !== "number"
+  ) {
     throw new Error("Invalid refresh token payload");
   }
 
-  return { userId: payload.userId };
+  return {
+    userId: payload.userId,
+    expiresAt: new Date(payload.exp * 1000)
+  };
 }
 
 function isJwtPayload(payload: string | JwtPayload): payload is JwtPayload {

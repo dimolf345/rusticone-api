@@ -6,9 +6,11 @@ import mongoose from "mongoose";
 import { app } from "../app.js";
 import { connectDatabase } from "../config/database.js";
 import { SessionModel, UserModel } from "../models/index.js";
+import { verifyRefreshToken } from "../utils/jwt.js";
 
 process.env.JWT_ACCESS_SECRET = "test-access-secret";
 process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
+process.env.JWT_REFRESH_EXPIRES_IN = "30d";
 
 interface AuthResponse {
   accessToken: string;
@@ -71,9 +73,15 @@ describe("authentication API", () => {
     assert.ok(storedUser?.password);
     assert.notEqual(storedUser.password, "secure-password");
     assert.equal(await storedUser.comparePassword("secure-password"), true);
+    const session = await SessionModel.findOne({ userId: storedUser._id });
+    assert.ok(session);
+    const refreshTokenPayload = verifyRefreshToken(registered.refreshToken);
     assert.equal(
-      await SessionModel.countDocuments({ userId: storedUser._id }),
-      1
+      session.expiresAt.getTime(),
+      refreshTokenPayload.expiresAt.getTime()
+    );
+    assert.ok(
+      session.expiresAt.getTime() - Date.now() > 29 * 24 * 60 * 60 * 1000
     );
 
     const profileResponse = await fetch(`${baseUrl}/api/auth/me`, {
