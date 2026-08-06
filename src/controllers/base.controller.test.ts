@@ -17,7 +17,7 @@ interface Item {
 type CreateItem = Omit<Item, "id">;
 type UpdateItem = Partial<CreateItem>;
 
-class TestController extends BaseController<Item, CreateItem, UpdateItem> {}
+class TestController extends BaseController<Item, CreateItem, UpdateItem> { }
 
 function createResponse() {
   const response = {
@@ -96,8 +96,11 @@ test("BaseController handles successful CRUD responses", async () => {
     findAllResponse
   );
   assert.equal(findAllResponse.statusCode, 200);
+  const expectedFilter = Object.assign(Object.create(null), {
+    name: { $in: ["Pizza", "Pasta"] }
+  });
   assert.deepEqual(findAllOptions, {
-    filter: { name: { $in: ["Pizza", "Pasta"] } },
+    filter: expectedFilter,
     page: 2,
     limit: 10
   });

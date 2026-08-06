@@ -13,11 +13,11 @@ export function createAuthRouter(dependencies: AuthRouterDependencies = {}) {
   const router = Router();
 
   router.post("/google", createGoogleAuthController(dependencies));
-  authRouter.post("/register", register);
-  authRouter.post("/login", login);
-  authRouter.post("/refresh", refreshToken);
-  authRouter.post("/logout", logout);
-  authRouter.get("/me", authMiddleware, me);
+  router.post("/register", register);
+  router.post("/login", login);
+  router.post("/refresh", refreshToken);
+  router.post("/logout", logout);
+  router.get("/me", authMiddleware, me);
 
   return router;
 }

@@ -41,7 +41,7 @@ export const openApiDocument = {
     description: "API documentation for the Rusticone catering backend"
   },
   paths: {
-    "/auth/google": {
+    "/api/auth/google": {
       post: {
         summary: "Authenticate a user with Google",
         description:
@@ -72,7 +72,7 @@ export const openApiDocument = {
         }
       }
     },
-    "/users": {
+    "/api/users": {
       post: {
         summary: "Create a user",
         tags: ["users"],
@@ -90,7 +90,7 @@ export const openApiDocument = {
         responses: { 200: { description: "Paginated user list" }, 500: { description: "Unable to list users" } }
       }
     },
-    "/users/{id}": {
+    "/api/users/{id}": {
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
       get: {
         summary: "Get a user",

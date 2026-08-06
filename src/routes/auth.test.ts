@@ -39,7 +39,7 @@ function createTestApp() {
 
   app.use(express.json());
   app.use(
-    "/auth",
+    "/api/auth",
     createAuthRouter({
       verifyGoogleIdToken: async (idToken: string) => {
         assert.equal(idToken, "valid-google-token");
@@ -80,7 +80,7 @@ describe("Google auth flow", () => {
 
       const baseUrl = `http://127.0.0.1:${address.port}`;
 
-      const firstResponse = await fetch(`${baseUrl}/auth/google`, {
+      const firstResponse = await fetch(`${baseUrl}/api/auth/google`, {
         method: "POST",
         headers: {
           "content-type": "application/json"
@@ -101,7 +101,7 @@ describe("Google auth flow", () => {
       assert.equal(firstBody.user.authProvider, "google");
       assert.equal(typeof firstBody.accessToken, "string");
 
-      const secondResponse = await fetch(`${baseUrl}/auth/google`, {
+      const secondResponse = await fetch(`${baseUrl}/api/auth/google`, {
         method: "POST",
         headers: {
           "content-type": "application/json"
@@ -142,7 +142,7 @@ describe("Google auth flow", () => {
       assert.equal(response.status, 200);
 
       const body = (await response.json()) as { paths: Record<string, unknown> };
-      assert.ok(body.paths["/auth/google"]);
+      assert.ok(body.paths["/api/auth/google"]);
     } finally {
       server.close();
     }
@@ -270,7 +270,8 @@ describe("authentication API", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         email: "duplicate@example.com",
-        password: "secure-password"
+        password: "secure-password",
+        name: "Duplicate Example"
       })
     };
 

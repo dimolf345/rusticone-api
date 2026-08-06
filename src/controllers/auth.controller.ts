@@ -4,19 +4,17 @@ import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 import {
   AUTH_PROVIDERS,
   SessionModel,
-  UserModel,
-  type UserDocument
+  UserModel
 } from "../models/index.js";
+import type { UserDocument } from "../models/user.js";
 import {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken
 } from "../utils/jwt.js";
 
-
-
-import { AuthError, authenticateWithGoogle } from "../services/auth.service.js";
 import type { GoogleAuthRequestBody, GoogleAuthServiceDependencies } from "../interfaces/auth/index.js";
+import { authenticateWithGoogle, AuthError } from "../services/auth.service.js";
 
 export function createGoogleAuthController(dependencies: GoogleAuthServiceDependencies = {}) {
   return async (request: Request<unknown, unknown, GoogleAuthRequestBody>, response: Response) => {
@@ -55,16 +53,6 @@ export function createGoogleAuthController(dependencies: GoogleAuthServiceDepend
   }
 }
 
-
-
-class AuthError extends Error {
-  constructor(
-    message: string,
-    readonly statusCode: number
-  ) {
-    super(message);
-  }
-}
 
 function serializeUser(user: UserDocument) {
   return {
@@ -141,7 +129,8 @@ export async function register(
       email,
       password,
       name,
-      authProvider: AUTH_PROVIDERS.Local
+      authProvider: AUTH_PROVIDERS.Local,
+      authProviderUserId: email
     });
     const refreshToken = await createSession(request, user);
 
