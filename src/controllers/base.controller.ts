@@ -88,7 +88,6 @@ export abstract class BaseController<
     private createFindAllOptions(
         query: Request["query"]
     ): FindAllOptions<TEntity> {
-        // Created with null prototype to prevent prototype pollution
         const filter: Record<string, unknown> = Object.create(null);
 
         if (query && typeof query === "object") {
@@ -104,14 +103,18 @@ export abstract class BaseController<
                     continue;
                 }
 
-                if (typeof value === "string") {
-                    filter[key] = value;
-                } else if (
+                // 1. Single string: convert to case-insensitive regex pattern
+                if (typeof value === "string" && value.trim() !== "") {
+                    filter[key] = { $regex: value, $options: "i" };
+                }
+                // 2. Multiple values (e.g., ?email=customer&email=admin): join with '|' for OR regex search
+                else if (
                     Array.isArray(value) &&
                     value.length > 0 &&
                     value.every((item) => typeof item === "string")
                 ) {
-                    filter[key] = { $in: value };
+                    const pattern = value.join("|"); // Matches any of the array items
+                    filter[key] = { $regex: pattern, $options: "i" };
                 }
             }
         }
