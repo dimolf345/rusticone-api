@@ -1,10 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 
-import { verifyAccessToken, type AccessTokenPayload } from "../utils/jwt.js";
+import { verifyAccessToken } from "../utils/jwt.js";
+import { AuthenticatedRequest } from "../interfaces/auth/index.js";
 
-export interface AuthenticatedRequest extends Request {
-  user: AccessTokenPayload;
-}
 
 export function authMiddleware(
   request: Request,
@@ -19,13 +17,14 @@ export function authMiddleware(
   }
 
   try {
-    (request as AuthenticatedRequest).user = verifyAccessToken(
-      authorization.slice(7)
-    );
-    next();
+    const token = authorization.slice(7);
+    (request as AuthenticatedRequest).user = verifyAccessToken(token);
   } catch {
     response
       .status(401)
       .json({ message: "Access token is invalid or expired" });
+    return;
   }
+
+  next();
 }

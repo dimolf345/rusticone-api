@@ -2,17 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import jwt, { type JwtPayload } from "jsonwebtoken";
 
+import { AccessTokenPayload, RefreshTokenPayload } from "../interfaces/auth/jwt.interface.js";
 import type { UserDocument } from "../models/user.js";
-
-export interface AccessTokenPayload {
-  userId: string;
-  email: string;
-}
-
-export interface RefreshTokenPayload {
-  userId: string;
-  expiresAt: Date;
-}
 
 function getSecret(name: "JWT_ACCESS_SECRET" | "JWT_REFRESH_SECRET"): string {
   const secret = process.env[name];
@@ -26,7 +17,7 @@ function getSecret(name: "JWT_ACCESS_SECRET" | "JWT_REFRESH_SECRET"): string {
 
 export function generateAccessToken(user: UserDocument): string {
   return jwt.sign(
-    { userId: user._id.toString(), email: user.email },
+    { userId: user._id.toString(), email: user.email, role: user.role },
     getSecret("JWT_ACCESS_SECRET"),
     {
       expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN ??
@@ -58,7 +49,7 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
     throw new Error("Invalid access token payload");
   }
 
-  return { userId: payload.userId, email: payload.email };
+  return { userId: payload.userId, email: payload.email, role: payload.role };
 }
 
 export function verifyRefreshToken(token: string): RefreshTokenPayload {
