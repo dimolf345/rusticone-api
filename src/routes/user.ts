@@ -1,17 +1,21 @@
 import { Router } from "express";
 
 import { UserController } from "../controllers/user.controller.js";
+import { authMiddleware } from "../middleware/auth.middleware.js";
+import { isAdminMiddleware } from "../middleware/is-admin.middleware.js";
 
 export function createUserRouter(controller = new UserController()) {
   const router = Router();
 
-  router.post("/", controller.createOne);
-  router.get("/", controller.findAll);
+  router.use(authMiddleware);
+
+  router.post("/", isAdminMiddleware, controller.createOne);
+  router.get("/", isAdminMiddleware, controller.findAll);
 
   //:id
-  router.get("/:id", controller.findOne);
+  router.get("/:id", isAdminMiddleware, controller.findOne);
   router.patch("/:id", controller.update);
-  router.delete("/:id", controller.delete);
+  router.delete("/:id", isAdminMiddleware, controller.delete);
 
   return router;
 }

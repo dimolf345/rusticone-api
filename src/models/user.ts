@@ -1,23 +1,34 @@
-import mongoose, { Schema, type HydratedDocument } from "mongoose";
+import mongoose, { Schema, type HydratedDocument, type Model } from "mongoose";
 import type { AdminUser, CustomerUser, StoredUser } from "../interfaces/user/index.js";
+import bcrypt from "bcryptjs";
 
 export const USER_ROLES = {
   Admin: "admin",
   Customer: "customer"
 } as const;
 
+
 export const AUTH_PROVIDERS = {
+  Local: "local",
   Google: "google"
 } as const;
 
-export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
+
+interface UserMethods {
+  comparePassword(candidatePassword: string): Promise<boolean>;
+}
+
+type UserModelType = Model<StoredUser, object, UserMethods>;
+export type UserDocument = HydratedDocument<StoredUser, UserMethods>;
+
+
 export type AuthProvider = (typeof AUTH_PROVIDERS)[keyof typeof AUTH_PROVIDERS];
+
+export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
 
 export type User = AdminUser | CustomerUser;
 
-export type UserDocument = HydratedDocument<StoredUser>;
-
-const userSchema = new Schema<StoredUser>(
+const userSchema = new Schema<StoredUser, UserModelType, UserMethods>(
   {
     role: {
       type: String,
@@ -28,20 +39,75 @@ const userSchema = new Schema<StoredUser>(
     email: {
       type: String,
       required: true,
-      trim: true,
       lowercase: true,
       unique: true,
-      index: true
+      trim: true,
+      match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address.']
     },
     name: {
       type: String,
-      required: true,
+      required(this: StoredUser) {
+        return this.role === USER_ROLES.Customer;
+      },
+      unique: false,
+      lowercase: false,
       trim: true
+    },
+    surname: {
+      type: String,
+      required(this: StoredUser) {
+        return this.role === USER_ROLES.Customer;
+      },
+      trim: true,
+      unique: false
+    },
+    username: {
+      type: String,
+      required(this: StoredUser) {
+        return this.role === USER_ROLES.Admin;
+      },
+      trim: true,
+      unique: true,
+      lowercase: true
+    },
+    deliveryAddress: {
+      type: String,
+      required(this: StoredUser) {
+        return false;
+        // return this.role === USER_ROLES.Customer;
+      }
+    },
+    telephoneNumber: {
+      type: String,
+      required(this: StoredUser) {
+        return false;
+        // return this.role === USER_ROLES.Customer;
+      },
+      match: /^\+?[1-9]\d{1,14}$/
+    },
+    fiscalCode: {
+      type: String,
+      required: false,
+      uppercase: true,
+      match: [/^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/, 'Please provide a valid Italian Fiscal Code.']
+    },
+    dateOfBirth: {
+      type: Date,
+      max: [new Date(), 'Date of birth cannot be in the future'],
+      min: [new Date('1900-01-01'), 'Date of birth is too old']
+    },
+    password: {
+      type: String,
+      select: false,
+      required(this: StoredUser) {
+        return this.authProvider === AUTH_PROVIDERS.Local;
+      }
     },
     authProvider: {
       type: String,
       enum: Object.values(AUTH_PROVIDERS),
-      required: true
+      required: true,
+      default: AUTH_PROVIDERS.Local,
     },
     authProviderUserId: {
       type: String,
@@ -61,7 +127,11 @@ const userSchema = new Schema<StoredUser>(
     },
     lastLoginAt: {
       type: Date
-    }
+    },
+    googleId: {
+      type: String,
+      default: null
+    },
   },
   {
     timestamps: true,
@@ -69,4 +139,27 @@ const userSchema = new Schema<StoredUser>(
   }
 );
 
-export const UserModel = mongoose.models.User ?? mongoose.model<StoredUser>("User", userSchema);
+userSchema.pre("save", async function (this: UserDocument) {
+  if (!this.isModified("password") || !this.password) {
+    return;
+  }
+
+  this.password = await bcrypt.hash(this.password, 12);
+});
+
+userSchema.methods.comparePassword = async function (
+  this: UserDocument,
+  candidatePassword: string
+) {
+  const password = this.password as string | undefined;
+
+  if (!password) {
+    return false;
+  }
+
+  return bcrypt.compare(candidatePassword, password);
+};
+
+export const UserModel =
+  (mongoose.models.User as UserModelType | undefined) ??
+  mongoose.model<StoredUser, UserModelType>("User", userSchema);

@@ -1,4 +1,3 @@
-import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import jwt from "jsonwebtoken";
 
 import { AUTH_PROVIDERS, USER_ROLES, UserModel, type UserDocument } from "../models/user.js";
@@ -8,6 +7,14 @@ import type {
     GoogleAuthServiceDependencies,
     SerializedAuthUser
 } from "../interfaces/auth/index.js";
+
+type GoogleTokenPayload = {
+    email?: string;
+    name?: string;
+    sub?: string;
+    picture?: string;
+    email_verified?: boolean;
+};
 
 const defaultJwtSecret = process.env.JWT_SECRET ?? "rusticone-dev-session-secret";
 const defaultJwtExpiresIn = process.env.JWT_EXPIRES_IN ?? "7d";
@@ -29,9 +36,11 @@ function createGoogleIdTokenVerifier(): (idToken: string) => Promise<GoogleAuthP
         throw new AuthError("GOOGLE_CLIENT_ID is required to verify Google sign-in", 500);
     }
 
-    const client = new OAuth2Client(googleClientId);
-
     return async (idToken: string) => {
+        const googleAuthLibraryModule = "google-auth-library";
+        const { OAuth2Client } = await import(googleAuthLibraryModule);
+        const client = new OAuth2Client(googleClientId);
+
         const ticket = await client.verifyIdToken({
             idToken,
             audience: googleClientId
@@ -47,7 +56,7 @@ function createGoogleIdTokenVerifier(): (idToken: string) => Promise<GoogleAuthP
     };
 }
 
-function mapTokenPayloadToProfile(payload: TokenPayload): GoogleAuthProfile {
+function mapTokenPayloadToProfile(payload: GoogleTokenPayload): GoogleAuthProfile {
     const email = payload.email?.trim().toLowerCase();
     const name = payload.name?.trim();
     const authProviderUserId = payload.sub?.trim();
@@ -74,7 +83,7 @@ function serializeUser(user: UserDocument): SerializedAuthUser {
         authProvider: user.authProvider,
         authProviderUserId: user.authProviderUserId,
         avatarUrl: user.avatarUrl,
-        emailVerified: user.emailVerified,
+        emailVerified: Boolean(user.emailVerified),
         lastLoginAt: user.lastLoginAt?.toISOString(),
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString()

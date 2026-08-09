@@ -5,10 +5,10 @@
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx watch --inspect=0.0.0.0:9229 src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "test": "docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from api",
+    "test": "docker compose -f docker-compose.test.yml up --build --renew-anon-volumes --abort-on-container-exit --exit-code-from api",
     "test:local": "tsx --test src/**/*.test.ts",
     "docker:build": "docker build -t rusticone-catering-api -f Dockerfile .",
     "docker:dev": "docker compose -f docker-compose.dev.yml up --build",
@@ -20,6 +20,7 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
@@ -34,6 +35,7 @@
     "@eslint/js": "^9.31.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.1.0",
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
