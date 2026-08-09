@@ -27,7 +27,7 @@ export abstract class BaseService<
   TCreate,
   TUpdate
 > implements BaseServiceInterface<TEntity, TCreate, TUpdate> {
-  protected constructor(protected readonly model: Model<TEntity>) {}
+  protected constructor(protected readonly model: Model<TEntity>) { }
 
   async createOne(data: TCreate): Promise<TEntity> {
     return this.model.create(data as unknown as TEntity);
@@ -78,5 +78,10 @@ export abstract class BaseService<
 
   async delete(id: string): Promise<TEntity | null> {
     return this.model.findByIdAndDelete(id).exec() as Promise<TEntity | null>;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  isValidUpdate(payload: TUpdate, ...args: unknown[]): boolean {
+    throw new Error('Method isValidUpdate not implemented');
   }
 }

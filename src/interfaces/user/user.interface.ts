@@ -1,26 +1,30 @@
 export interface BaseUser {
+  _id: string;
   role: string;
   email: string;
-  name: string;
+  name?: string;
+  surname?: string;
   authProvider: string;
   authProviderUserId: string;
   avatarUrl?: string;
   emailVerified?: boolean;
   lastLoginAt?: Date;
+  username?: string;
+  deliveryAddress?: string;
+  telephoneNumber?: string;
+  fiscalCode?: string;
+  dateOfBirth?: Date;
 }
 
 export interface AdminUser extends BaseUser {
   role: "admin";
-  username: string;
 }
 
 export interface CustomerUser extends BaseUser {
   role: "customer";
-  surname: string;
   deliveryAddress: string;
   telephoneNumber: string;
-  fiscalCode?: string;
-  dateOfBirth?: Date;
+  fiscalCode: string;
 }
 
 export interface StoredUser extends BaseUser {

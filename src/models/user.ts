@@ -39,17 +39,62 @@ const userSchema = new Schema<StoredUser, UserModelType, UserMethods>(
     email: {
       type: String,
       required: true,
-      trim: true,
       lowercase: true,
       unique: true,
-      index: true
+      trim: true,
+      match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address.']
     },
     name: {
       type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
+      required(this: StoredUser) {
+        return this.role === USER_ROLES.Customer;
+      },
+      unique: false,
+      lowercase: false,
       trim: true
+    },
+    surname: {
+      type: String,
+      required(this: StoredUser) {
+        return this.role === USER_ROLES.Customer;
+      },
+      trim: true,
+      unique: false
+    },
+    username: {
+      type: String,
+      required(this: StoredUser) {
+        return this.role === USER_ROLES.Admin;
+      },
+      trim: true,
+      unique: true,
+      lowercase: true
+    },
+    deliveryAddress: {
+      type: String,
+      required(this: StoredUser) {
+        return false;
+        // return this.role === USER_ROLES.Customer;
+      }
+    },
+    telephoneNumber: {
+      type: String,
+      required(this: StoredUser) {
+        return false;
+        // return this.role === USER_ROLES.Customer;
+      },
+      match: /^\+?[1-9]\d{1,14}$/
+    },
+    fiscalCode: {
+      type: String,
+      required: false,
+      uppercase: true,
+      match: [/^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/, 'Please provide a valid Italian Fiscal Code.']
+    },
+    dateOfBirth: {
+      type: Date,
+      max: [new Date(), 'Date of birth cannot be in the future'],
+      min: [new Date('1900-01-01'), 'Date of birth is too old']
     },
     password: {
       type: String,
@@ -87,7 +132,7 @@ const userSchema = new Schema<StoredUser, UserModelType, UserMethods>(
       type: String,
       default: null
     },
-  } as unknown as StoredUser,
+  },
   {
     timestamps: true,
     versionKey: false

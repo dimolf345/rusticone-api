@@ -39,13 +39,17 @@ export abstract class BaseController<
 > implements BaseControllerInterface<TEntity, TCreate, TUpdate> {
     constructor(
         protected readonly service: BaseServiceInterface<TEntity, TCreate, TUpdate>,
-        private readonly resourceName = "resource"
+        private readonly _resourceName = "resource"
     ) { }
+
+    get resourceName() {
+        return this._resourceName;
+    }
 
     /**
      * Creates a new entity for the configured resource.
      */
-    readonly createOne = async (
+    public createOne = async (
         request: Request<unknown, unknown, TCreate>,
         response: Response
     ): Promise<void> => {
@@ -66,7 +70,7 @@ export abstract class BaseController<
     /**
      * Returns a paginated list of entities for the configured resource.
      */
-    readonly findAll = async (
+    public findAll = async (
         request: Request,
         response: Response
     ): Promise<void> => {
@@ -85,7 +89,7 @@ export abstract class BaseController<
      * Normalizes supported query params into a filter and page/limit options.
      * Ignores reserved keys such as page, limit, and nested/operator fields.
      */
-    private createFindAllOptions(
+    public createFindAllOptions(
         query: Request["query"]
     ): FindAllOptions<TEntity> {
         const filter: Record<string, unknown> = Object.create(null);
@@ -129,7 +133,7 @@ export abstract class BaseController<
     /**
      * Returns a single entity by id.
      */
-    readonly findOne = async (
+    public findOne = async (
         request: Request<{ id: string }>,
         response: Response
     ): Promise<void> => {
@@ -154,7 +158,7 @@ export abstract class BaseController<
     /**
      * Updates an existing entity by id.
      */
-    readonly update = async (
+    public update = async (
         request: Request<{ id: string }, unknown, TUpdate>,
         response: Response
     ): Promise<void> => {
@@ -183,7 +187,7 @@ export abstract class BaseController<
     /**
      * Deletes an existing entity by id.
      */
-    readonly delete = async (
+    public delete = async (
         request: Request<{ id: string }>,
         response: Response
     ): Promise<void> => {
@@ -209,10 +213,12 @@ export abstract class BaseController<
         }
     };
 
+    public 
+
     /**
      * Sends a standardized error response for controller failures.
      */
-    private handleError(
+    protected handleError(
         response: Response,
         message: string,
         error: unknown
