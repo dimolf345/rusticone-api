@@ -4,5 +4,5 @@ export type {
   CreateUserInput,
   CustomerUser,
   StoredUser,
-  UpdateUserInput
+  UpdateUserInput,
 } from "./user.interface.js";

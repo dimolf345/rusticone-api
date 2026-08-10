@@ -26,6 +26,7 @@ export interface BaseServiceInterface<TEntity, TCreate, TUpdate> {
   findOne(id: string): Promise<TEntity | null>;
   update(id: string, data: TUpdate): Promise<TEntity | null>;
   delete(id: string): Promise<TEntity | null>;
+  isValidUpdate?(payload: TUpdate, ...args: unknown[]): boolean;
 }
 
 export interface BaseControllerInterface<TEntity, TCreate, TUpdate> {

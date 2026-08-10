@@ -17,6 +17,6 @@ app.get("/openapi.json", (_request, response) => {
   response.json(openApiDocument);
 });
 
-app.use("/auth", authRouter);
-app.use("/health", healthRouter);
-app.use("/users", userRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/health", healthRouter);
+app.use("/api/users", userRouter);

@@ -13,7 +13,7 @@ const testUserIdPrefix = "user-route-test-";
 function createTestApp() {
   const app = express();
   app.use(express.json());
-  app.use("/users", createUserRouter());
+  app.use("/api/users", createUserRouter());
   return app;
 }
 
@@ -42,7 +42,7 @@ describe("User routes", () => {
         throw new Error("Unable to determine test server address");
       }
 
-      const baseUrl = `http://127.0.0.1:${address.port}/users`;
+      const baseUrl = `http://127.0.0.1:${address.port}/api/users`;
       const createResponse = await fetch(baseUrl, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -84,10 +84,10 @@ describe("User routes", () => {
       });
       assert.equal(updateResponse.status, 200);
       const updated = (await updateResponse.json()) as { name: string };
-      assert.equal(updated.name, "Updated Route User");
+      assert.equal(updated.name, "updated route user");
 
       const storedUser = await UserModel.findById(created._id).lean().exec();
-      assert.equal(storedUser?.name, "Updated Route User");
+      assert.equal(storedUser?.name, "updated route user");
 
       const deleteResponse = await fetch(`${baseUrl}/${created._id}`, {
         method: "DELETE"

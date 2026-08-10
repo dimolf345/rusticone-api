@@ -21,10 +21,13 @@ services:
       dockerfile: Dockerfile.dev
     ports:
       - "3000:3000"
+      - "9229:9229" # Inspector port
     environment:
       NODE_ENV: development
       PORT: 3000
       MONGO_INITDB_DATABASE: mongodb://mongo:27017/rusticone-dev
+      JWT_REFRESH_SECRET: "refresh-secret"
+      JWT_ACCESS_SECRET: "access-secret"
     depends_on:
       mongo:
         condition: service_healthy
