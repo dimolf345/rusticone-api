@@ -8,8 +8,14 @@ This project is intentionally small, so organize code by scope rather than by fe
 
 Keep the structure simple and avoid introducing extra layers unless the codebase clearly needs them.
 
-## Developing API andpoints
+## Documentation
+
+For every feature or behavior change, add or update documentation under `docs/` describing the implemented behavior, configuration, usage, and relevant testing instructions. Documentation updates are part of the Definition of Done and must be committed with the feature.
+
+## Developing API endpoints
+
 When asked to develop new api endpoint, always be sure that the following items are included in the Definition of Done:
+
 1. Api documentation following OpenApi standard
 2. Check the correct pattern to implement endpoint (controllers, services, models, ecc..)
 3. Check that every endpoint logs the most important steps of the API purpose
