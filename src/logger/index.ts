@@ -30,7 +30,8 @@ const transport = pino.transport({
         dateFormat: "yyyy-MM-dd",
         mkdir: true,
         limit: {
-          count: 14,
+          // pino-roll keeps this many rotated files in addition to the active file.
+          count: 13,
           removeOtherLogFiles: true
         }
       }
