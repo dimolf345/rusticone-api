@@ -60,6 +60,20 @@ function createService(
 
 const request = <T>(value: T) => value as never;
 
+const testLogger = {
+  info() { },
+  error() { },
+  warn() { },
+  debug() { },
+  trace() { }
+};
+
+const requestWithLogger = <T>(value: T) =>
+  ({
+    ...value,
+    log: testLogger
+  }) as never;
+
 test("BaseController handles successful CRUD responses", async () => {
   let findAllOptions: FindAllOptions<Item> | undefined;
   const controller = new TestController(
@@ -76,7 +90,7 @@ test("BaseController handles successful CRUD responses", async () => {
   );
   const createResponseValue = createResponse();
   await controller.createOne(
-    request({ body: { name: "Pizza" } }),
+    requestWithLogger({ body: { name: "Pizza" } }),
     createResponseValue
   );
   assert.equal(createResponseValue.statusCode, 201);
@@ -84,7 +98,7 @@ test("BaseController handles successful CRUD responses", async () => {
 
   const findAllResponse = createResponse();
   await controller.findAll(
-    request({
+    requestWithLogger({
       query: {
         page: "2",
         limit: "10",
@@ -97,7 +111,7 @@ test("BaseController handles successful CRUD responses", async () => {
   );
   assert.equal(findAllResponse.statusCode, 200);
   const expectedFilter = Object.assign(Object.create(null), {
-    name: { $in: ["Pizza", "Pasta"] }
+    name: { $regex: "Pizza|Pasta", $options: "i" }
   });
   assert.deepEqual(findAllOptions, {
     filter: expectedFilter,
@@ -110,19 +124,25 @@ test("BaseController handles successful CRUD responses", async () => {
   });
 
   const findOneResponse = createResponse();
-  await controller.findOne(request({ params: { id: "1" } }), findOneResponse);
+  await controller.findOne(
+    requestWithLogger({ params: { id: "1" } }),
+    findOneResponse
+  );
   assert.equal(findOneResponse.statusCode, 200);
 
   const updateResponse = createResponse();
   await controller.update(
-    request({ params: { id: "1" }, body: { name: "Pasta" } }),
+    requestWithLogger({ params: { id: "1" }, body: { name: "Pasta" } }),
     updateResponse
   );
   assert.equal(updateResponse.statusCode, 200);
   assert.deepEqual(updateResponse.body, { id: "1", name: "Pasta" });
 
   const deleteResponse = createResponse();
-  await controller.delete(request({ params: { id: "1" } }), deleteResponse);
+  await controller.delete(
+    requestWithLogger({ params: { id: "1" } }),
+    deleteResponse
+  );
   assert.equal(deleteResponse.statusCode, 204);
 });
 
@@ -137,7 +157,10 @@ test("BaseController returns 404 when an entity does not exist", async () => {
   );
   const response = createResponse();
 
-  await controller.findOne(request({ params: { id: "missing" } }), response);
+  await controller.findOne(
+    requestWithLogger({ params: { id: "missing" } }),
+    response
+  );
   assert.equal(response.statusCode, 404);
   assert.deepEqual(response.body, { message: "item not found" });
 });
@@ -153,7 +176,7 @@ test("BaseController returns 500 when a service operation fails", async () => {
   );
   const response = createResponse();
 
-  await controller.findAll(request({ query: {} }), response);
+  await controller.findAll(requestWithLogger({ query: {} }), response);
   assert.equal(response.statusCode, 500);
   assert.deepEqual(response.body, { message: "database unavailable" });
 });
