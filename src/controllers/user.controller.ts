@@ -27,7 +27,7 @@ export class UserController extends BaseController<
     request: Request<{ id: string }, unknown, UpdateUserInput>,
     response: Response
   ): Promise<void> => {
-    console.info(`Updating ${this.resourceName} ${request.params.id}`);
+    request.log.info(`Updating ${this.resourceName} ${request.params.id}`);
 
     try {
       const entity = await this.service.update(request.params.id, request.body);
@@ -42,6 +42,7 @@ export class UserController extends BaseController<
       response.status(200).json(entity);
     } catch (error) {
       this.handleError(
+        request.log,
         response,
         `Unable to update ${this.resourceName}`,
         error

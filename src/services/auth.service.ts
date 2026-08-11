@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 
+import { logger } from "../logger/index.js";
 import { AUTH_PROVIDERS, USER_ROLES, UserModel, type UserDocument } from "../models/user.js";
 import type {
     AuthenticatedGoogleUserResponse,
@@ -133,6 +134,11 @@ export async function authenticateWithGoogle(
     const profile = await verifyGoogleIdToken(idToken);
     const now = new Date();
 
+    logger.info(
+        { email: profile.email, authProviderUserId: profile.authProviderUserId },
+        "Verified Google id token, resolving user"
+    );
+
     // Fetch up to 2 matches to detect ambiguous identity states
     const matchingUsers = await UserModel.find({
         $or: [
@@ -162,6 +168,7 @@ export async function authenticateWithGoogle(
             lastLoginAt: now
         });
         isNewUser = true;
+        logger.info({ userId: user._id.toString(), email: user.email }, "Created new Google user");
     } else if (matchingUsers.length === 1) {
         // Case 2: Unambiguous match
         const matchedUser = matchingUsers[0];
@@ -171,6 +178,10 @@ export async function authenticateWithGoogle(
             matchedUser.authProvider === AUTH_PROVIDERS.Google &&
             matchedUser.authProviderUserId !== profile.authProviderUserId
         ) {
+            logger.warn(
+                { email: profile.email },
+                "Google auth rejected: email linked to a different Google account"
+            );
             throw new AuthError("Email is associated with a different Google account.", 409);
         }
 
@@ -182,8 +193,13 @@ export async function authenticateWithGoogle(
         matchedUser.emailVerified = profile.emailVerified;
         matchedUser.lastLoginAt = now;
         user = await matchedUser.save();
+        logger.info({ userId: user._id.toString(), email: user.email }, "Linked existing user to Google login");
     } else {
         // Case 3: Ambiguous match (1 user matched on email, 1 matched on Google ID)
+        logger.warn(
+            { email: profile.email, authProviderUserId: profile.authProviderUserId },
+            "Google auth rejected: ambiguous identity match"
+        );
         throw new AuthError(
             "Ambiguous identity: multiple accounts match the provider ID and email.",
             409

@@ -55,9 +55,7 @@ const userSchema = new Schema<StoredUser, UserModelType, UserMethods>(
     },
     surname: {
       type: String,
-      required(this: StoredUser) {
-        return this.role === USER_ROLES.Customer;
-      },
+      required: false,
       trim: true,
       unique: false
     },
