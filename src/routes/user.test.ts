@@ -113,10 +113,10 @@ describe("User routes", () => {
       });
       assert.equal(updateResponse.status, 200);
       const updated = (await updateResponse.json()) as { name: string };
-      assert.equal(updated.name, "updated route user");
+      assert.equal(updated.name, "Updated Route User");
 
       const storedUser = await UserModel.findById(created._id).lean().exec();
-      assert.equal(storedUser?.name, "updated route user");
+      assert.equal(storedUser?.name, "Updated Route User");
 
       const deleteResponse = await fetch(`${baseUrl}/${created._id}`, {
         method: "DELETE",
