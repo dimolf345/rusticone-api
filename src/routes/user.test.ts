@@ -8,6 +8,7 @@ import pino from "pino";
 
 import { connectDatabase } from "../config/database.js";
 import { createLoggingMiddleware } from "../logger/middleware.js";
+import { errorHandler } from "../middleware/errorHandler.js";
 import { UserModel } from "../models/user.js";
 import { generateAccessToken } from "../utils/jwt.js";
 import { createUserRouter } from "./user.js";
@@ -24,6 +25,7 @@ function createTestApp(): Express {
   app.use(createLoggingMiddleware(testLogger));
   app.use(express.json());
   app.use("/api/users", createUserRouter());
+  app.use(errorHandler);
   return app;
 }
 
@@ -200,6 +202,13 @@ describe.skip("User routes", () => {
       headers: { authorization: adminAuthHeader }
     });
     assert.equal(getResponse.status, 404);
-    assert.deepEqual(await getResponse.json(), { message: "user not found" });
+    const notFoundBody = (await getResponse.json()) as {
+      success: boolean;
+      status: string;
+      message: string;
+    };
+    assert.equal(notFoundBody.success, false);
+    assert.equal(notFoundBody.status, "fail");
+    assert.equal(notFoundBody.message, "user not found");
   });
 });

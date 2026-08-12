@@ -13,43 +13,36 @@ import {
 } from "../utils/jwt.js";
 
 import type { AuthenticatedRequest, GoogleAuthRequestBody, GoogleAuthServiceDependencies } from "../interfaces/auth/index.js";
-import { authenticateWithGoogle, AuthError } from "../services/auth.service.js";
+import { authenticateWithGoogle } from "../services/auth.service.js";
+import {
+  AppError,
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+  UnauthorizedError
+} from "../errors/index.js";
 
 export function createGoogleAuthController(dependencies: GoogleAuthServiceDependencies = {}) {
-  return async (request: Request<unknown, unknown, GoogleAuthRequestBody>, response: Response) => {
+  return async (request: Request<unknown, unknown, GoogleAuthRequestBody>, response: Response): Promise<void> => {
     const idToken = request.body.idToken?.trim() ?? "";
 
     if (!idToken) {
-      response.status(400).json({
-        message: "idToken is required"
-      });
-      return;
+      throw new BadRequestError("idToken is required");
     }
 
     request.log.info("Google auth request received");
 
-    try {
-      const authResult = await authenticateWithGoogle(idToken, dependencies);
+    const authResult = await authenticateWithGoogle(idToken, dependencies);
 
-      request.log.info(
-        { email: authResult.user.email, isNewUser: authResult.isNewUser },
-        `Google auth completed (${authResult.isNewUser ? "sign-up" : "login"})`
-      );
+    request.log.info(
+      { email: authResult.user.email, isNewUser: authResult.isNewUser },
+      `Google auth completed (${authResult.isNewUser ? "sign-up" : "login"})`
+    );
 
-      response.status(authResult.isNewUser ? 201 : 200).json({
-        message: authResult.isNewUser ? "User created with Google sign-up" : "User logged in with Google",
-        ...authResult
-      });
-    } catch (error) {
-      const statusCode = error instanceof AuthError ? error.statusCode : 500;
-      const message = error instanceof Error ? error.message : "Unexpected authentication error";
-
-      request.log.error({ err: error }, "Google auth failed");
-
-      response.status(statusCode).json({
-        message
-      });
-    }
+    response.status(authResult.isNewUser ? 201 : 200).json({
+      message: authResult.isNewUser ? "User created with Google sign-up" : "User logged in with Google",
+      ...authResult
+    });
   }
 }
 
@@ -82,20 +75,6 @@ async function createSession(request: Request, user: UserDocument) {
   return refreshToken;
 }
 
-function sendError(
-  request: Request,
-  response: Response,
-  error: unknown,
-  operation: string
-): void {
-  const statusCode = error instanceof AuthError ? error.statusCode : 500;
-  const message =
-    error instanceof AuthError ? error.message : `Unable to ${operation}`;
-
-  request.log.error({ err: error }, `Authentication ${operation} failed`);
-  response.status(statusCode).json({ message });
-}
-
 export async function register(
   request: Request,
   response: Response
@@ -112,18 +91,16 @@ export async function register(
       : undefined;
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 8) {
-    response.status(400).json({
-      message:
-        "A valid email and password of at least 8 characters are required"
-    });
-    return;
+    throw new BadRequestError(
+      "A valid email and password of at least 8 characters are required"
+    );
   }
 
   request.log.info({ email }, "Registering local user");
 
   try {
     if (await UserModel.exists({ email })) {
-      throw new AuthError("A user with this email already exists", 409);
+      throw new ConflictError("A user with this email already exists");
     }
 
     const user = await UserModel.create({
@@ -142,21 +119,16 @@ export async function register(
       user: serializeUser(user)
     });
   } catch (error) {
+    // Translate the MongoDB duplicate-key error into a typed conflict error.
     if (
       typeof error === "object" &&
       error !== null &&
       "code" in error &&
       error.code === 11000
     ) {
-      sendError(
-        request,
-        response,
-        new AuthError("A user with this email already exists", 409),
-        "register user"
-      );
-      return;
+      throw new ConflictError("A user with this email already exists");
     }
-    sendError(request, response, error, "register user");
+    throw error;
   }
 }
 
@@ -172,35 +144,30 @@ export async function login(
     typeof request.body?.password === "string" ? request.body.password : "";
 
   if (!email || !password) {
-    response.status(400).json({ message: "Email and password are required" });
-    return;
+    throw new BadRequestError("Email and password are required");
   }
 
   request.log.info({ email }, "Authenticating local user");
 
-  try {
-    const user = await UserModel.findOne({
-      email,
-      authProvider: AUTH_PROVIDERS.Local
-    }).select("+password");
+  const user = await UserModel.findOne({
+    email,
+    authProvider: AUTH_PROVIDERS.Local
+  }).select("+password");
 
-    if (!user || !(await user.comparePassword(password))) {
-      throw new AuthError("Invalid email or password", 401);
-    }
-
-    user.lastLoginAt = new Date();
-    await user.save();
-    const refreshToken = await createSession(request, user);
-
-    request.log.info({ userId: user._id.toString() }, "Local user authenticated");
-    response.json({
-      accessToken: generateAccessToken(user),
-      refreshToken,
-      user: serializeUser(user)
-    });
-  } catch (error) {
-    sendError(request, response, error, "login");
+  if (!user || !(await user.comparePassword(password))) {
+    throw new UnauthorizedError("Invalid email or password");
   }
+
+  user.lastLoginAt = new Date();
+  await user.save();
+  const refreshToken = await createSession(request, user);
+
+  request.log.info({ userId: user._id.toString() }, "Local user authenticated");
+  response.json({
+    accessToken: generateAccessToken(user),
+    refreshToken,
+    user: serializeUser(user)
+  });
 }
 
 export async function refreshToken(
@@ -213,8 +180,7 @@ export async function refreshToken(
       : "";
 
   if (!token) {
-    response.status(400).json({ message: "Refresh token is required" });
-    return;
+    throw new BadRequestError("Refresh token is required");
   }
 
   request.log.info("Refreshing access token");
@@ -227,29 +193,24 @@ export async function refreshToken(
     });
 
     if (!session) {
-      throw new AuthError("Refresh token is invalid or expired", 401);
+      throw new UnauthorizedError("Refresh token is invalid or expired");
     }
 
     const user = await UserModel.findById(payload.userId);
 
     if (!user) {
       await session.deleteOne();
-      throw new AuthError("Refresh token user no longer exists", 401);
+      throw new UnauthorizedError("Refresh token user no longer exists");
     }
 
     request.log.info({ userId: user._id.toString() }, "Access token refreshed");
     response.json({ accessToken: generateAccessToken(user) });
   } catch (error) {
-    if (!(error instanceof AuthError)) {
-      sendError(
-        request,
-        response,
-        new AuthError("Refresh token is invalid or expired", 401),
-        "refresh token"
-      );
-      return;
+    // Preserve typed application errors; normalize token verification failures.
+    if (error instanceof AppError) {
+      throw error;
     }
-    sendError(request, response, error, "refresh token");
+    throw new UnauthorizedError("Refresh token is invalid or expired");
   }
 }
 
@@ -263,34 +224,24 @@ export async function logout(
       : "";
 
   if (!token) {
-    response.status(400).json({ message: "Refresh token is required" });
-    return;
+    throw new BadRequestError("Refresh token is required");
   }
 
   request.log.info("Logging out session");
-  try {
-    await SessionModel.deleteOne({ refreshToken: token });
-    request.log.info("Session logged out");
-    response.status(204).send();
-  } catch (error) {
-    sendError(request, response, error, "logout");
-  }
+  await SessionModel.deleteOne({ refreshToken: token });
+  request.log.info("Session logged out");
+  response.status(204).send();
 }
 
 export async function me(request: Request, response: Response): Promise<void> {
   const { userId } = (request as AuthenticatedRequest)?.user || {};
 
-  try {
-    const user = await UserModel.findById(userId);
+  const user = await UserModel.findById(userId);
 
-    if (!user) {
-      response.status(404).json({ message: "User not found" });
-      return;
-    }
-
-    request.log.info({ userId }, "Returning profile for user");
-    response.json({ user: serializeUser(user) });
-  } catch (error) {
-    sendError(request, response, error, "load user profile");
+  if (!user) {
+    throw new NotFoundError("User not found");
   }
+
+  request.log.info({ userId }, "Returning profile for user");
+  response.json({ user: serializeUser(user) });
 }

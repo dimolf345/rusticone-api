@@ -8,16 +8,17 @@ import {
 } from "../controllers/auth.controller.js";
 import type { AuthRouterDependencies } from "../interfaces/auth/index.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 export function createAuthRouter(dependencies: AuthRouterDependencies = {}) {
   const router = Router();
 
-  router.post("/google", createGoogleAuthController(dependencies));
-  router.post("/register", register);
-  router.post("/login", login);
-  router.post("/refresh", refreshToken);
-  router.post("/logout", logout);
-  router.get("/me", authMiddleware, me);
+  router.post("/google", asyncHandler(createGoogleAuthController(dependencies)));
+  router.post("/register", asyncHandler(register));
+  router.post("/login", asyncHandler(login));
+  router.post("/refresh", asyncHandler(refreshToken));
+  router.post("/logout", asyncHandler(logout));
+  router.get("/me", authMiddleware, asyncHandler(me));
 
   return router;
 }

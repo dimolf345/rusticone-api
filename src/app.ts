@@ -3,6 +3,7 @@ import express from "express";
 import helmet from "helmet";
 
 import { loggingMiddleware } from "./logger/middleware.js";
+import { errorHandler } from "./middleware/errorHandler.js";
 import { openApiDocument } from "./openapi.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
@@ -22,3 +23,6 @@ app.get("/openapi.json", (_request, response) => {
 app.use("/api/auth", authRouter);
 app.use("/api/health", healthRouter);
 app.use("/api/users", userRouter);
+
+// Centralized error handler must be registered after all routes.
+app.use(errorHandler);
