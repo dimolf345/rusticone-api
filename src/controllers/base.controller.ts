@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import type { Logger } from "pino";
 
 import type {
     BaseControllerInterface,
@@ -53,13 +54,14 @@ export abstract class BaseController<
         request: Request<unknown, unknown, TCreate>,
         response: Response
     ): Promise<void> => {
-        console.info(`Creating ${this.resourceName}`);
+        request.log.info(`Creating ${this.resourceName}`);
 
         try {
             const entity = await this.service.createOne(request.body);
             response.status(201).json(entity);
         } catch (error) {
             this.handleError(
+                request.log,
                 response,
                 `Unable to create ${this.resourceName}`,
                 error
@@ -74,14 +76,15 @@ export abstract class BaseController<
         request: Request,
         response: Response
     ): Promise<void> => {
-        console.info(`Finding all ${this.resourceName}s`);
+        request.log.info(`Finding all ${this.resourceName}s`);
 
         try {
             const options = this.createFindAllOptions(request.query);
             const result = await this.service.findAll(options);
             response.status(200).json(result);
         } catch (error) {
-            this.handleError(response, `Unable to find ${this.resourceName}s`, error);
+            this.handleError(
+                request.log, response, `Unable to find ${this.resourceName}s`, error);
         }
     };
 
@@ -137,7 +140,7 @@ export abstract class BaseController<
         request: Request<{ id: string }>,
         response: Response
     ): Promise<void> => {
-        console.info(`Finding ${this.resourceName} ${request.params.id}`);
+        request.log.info(`Finding ${this.resourceName} ${request.params.id}`);
 
         try {
             const entity = await this.service.findOne(request.params.id);
@@ -151,7 +154,8 @@ export abstract class BaseController<
 
             response.status(200).json(entity);
         } catch (error) {
-            this.handleError(response, `Unable to find ${this.resourceName}`, error);
+            this.handleError(
+                request.log, response, `Unable to find ${this.resourceName}`, error);
         }
     };
 
@@ -162,7 +166,7 @@ export abstract class BaseController<
         request: Request<{ id: string }, unknown, TUpdate>,
         response: Response
     ): Promise<void> => {
-        console.info(`Updating ${this.resourceName} ${request.params.id}`);
+        request.log.info(`Updating ${this.resourceName} ${request.params.id}`);
 
         try {
             const entity = await this.service.update(request.params.id, request.body);
@@ -177,6 +181,7 @@ export abstract class BaseController<
             response.status(200).json(entity);
         } catch (error) {
             this.handleError(
+                request.log,
                 response,
                 `Unable to update ${this.resourceName}`,
                 error
@@ -191,7 +196,7 @@ export abstract class BaseController<
         request: Request<{ id: string }>,
         response: Response
     ): Promise<void> => {
-        console.info(`Deleting ${this.resourceName} ${request.params.id}`);
+        request.log.info(`Deleting ${this.resourceName} ${request.params.id}`);
 
         try {
             const entity = await this.service.delete(request.params.id);
@@ -206,6 +211,7 @@ export abstract class BaseController<
             response.status(204).send();
         } catch (error) {
             this.handleError(
+                request.log,
                 response,
                 `Unable to delete ${this.resourceName}`,
                 error
@@ -213,18 +219,17 @@ export abstract class BaseController<
         }
     };
 
-    public 
-
     /**
      * Sends a standardized error response for controller failures.
      */
     protected handleError(
+        log: Logger,
         response: Response,
         message: string,
         error: unknown
     ): void {
         const detail = error instanceof Error ? error.message : "Unexpected error";
-        console.error(`${message}:`, detail);
+        log.error({ err: error }, message);
         response.status(500).json({ message: detail });
     }
 }
