@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
 
-import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 import {
   AUTH_PROVIDERS,
   SessionModel,
@@ -13,7 +12,7 @@ import {
   verifyRefreshToken
 } from "../utils/jwt.js";
 
-import type { GoogleAuthRequestBody, GoogleAuthServiceDependencies } from "../interfaces/auth/index.js";
+import type { AuthenticatedRequest, GoogleAuthRequestBody, GoogleAuthServiceDependencies } from "../interfaces/auth/index.js";
 import { authenticateWithGoogle, AuthError } from "../services/auth.service.js";
 
 export function createGoogleAuthController(dependencies: GoogleAuthServiceDependencies = {}) {
@@ -27,13 +26,14 @@ export function createGoogleAuthController(dependencies: GoogleAuthServiceDepend
       return;
     }
 
-    console.info("Google auth request received");
+    request.log.info("Google auth request received");
 
     try {
       const authResult = await authenticateWithGoogle(idToken, dependencies);
 
-      console.info(
-        `Google auth completed for ${authResult.user.email} (${authResult.isNewUser ? "sign-up" : "login"})`
+      request.log.info(
+        { email: authResult.user.email, isNewUser: authResult.isNewUser },
+        `Google auth completed (${authResult.isNewUser ? "sign-up" : "login"})`
       );
 
       response.status(authResult.isNewUser ? 201 : 200).json({
@@ -44,7 +44,7 @@ export function createGoogleAuthController(dependencies: GoogleAuthServiceDepend
       const statusCode = error instanceof AuthError ? error.statusCode : 500;
       const message = error instanceof Error ? error.message : "Unexpected authentication error";
 
-      console.error("Google auth failed:", message);
+      request.log.error({ err: error }, "Google auth failed");
 
       response.status(statusCode).json({
         message
@@ -83,6 +83,7 @@ async function createSession(request: Request, user: UserDocument) {
 }
 
 function sendError(
+  request: Request,
   response: Response,
   error: unknown,
   operation: string
@@ -91,7 +92,7 @@ function sendError(
   const message =
     error instanceof AuthError ? error.message : `Unable to ${operation}`;
 
-  console.error(`Authentication ${operation} failed:`, error);
+  request.log.error({ err: error }, `Authentication ${operation} failed`);
   response.status(statusCode).json({ message });
 }
 
@@ -118,7 +119,7 @@ export async function register(
     return;
   }
 
-  console.info(`Registering local user ${email}`);
+  request.log.info({ email }, "Registering local user");
 
   try {
     if (await UserModel.exists({ email })) {
@@ -134,7 +135,7 @@ export async function register(
     });
     const refreshToken = await createSession(request, user);
 
-    console.info(`Local user registered: ${user._id.toString()}`);
+    request.log.info({ userId: user._id.toString() }, "Local user registered");
     response.status(201).json({
       accessToken: generateAccessToken(user),
       refreshToken,
@@ -148,13 +149,14 @@ export async function register(
       error.code === 11000
     ) {
       sendError(
+        request,
         response,
         new AuthError("A user with this email already exists", 409),
         "register user"
       );
       return;
     }
-    sendError(response, error, "register user");
+    sendError(request, response, error, "register user");
   }
 }
 
@@ -174,7 +176,7 @@ export async function login(
     return;
   }
 
-  console.info(`Authenticating local user ${email}`);
+  request.log.info({ email }, "Authenticating local user");
 
   try {
     const user = await UserModel.findOne({
@@ -190,14 +192,14 @@ export async function login(
     await user.save();
     const refreshToken = await createSession(request, user);
 
-    console.info(`Local user authenticated: ${user._id.toString()}`);
+    request.log.info({ userId: user._id.toString() }, "Local user authenticated");
     response.json({
       accessToken: generateAccessToken(user),
       refreshToken,
       user: serializeUser(user)
     });
   } catch (error) {
-    sendError(response, error, "login");
+    sendError(request, response, error, "login");
   }
 }
 
@@ -215,7 +217,7 @@ export async function refreshToken(
     return;
   }
 
-  console.info("Refreshing access token");
+  request.log.info("Refreshing access token");
 
   try {
     const payload = verifyRefreshToken(token);
@@ -235,18 +237,19 @@ export async function refreshToken(
       throw new AuthError("Refresh token user no longer exists", 401);
     }
 
-    console.info(`Access token refreshed for user ${user._id.toString()}`);
+    request.log.info({ userId: user._id.toString() }, "Access token refreshed");
     response.json({ accessToken: generateAccessToken(user) });
   } catch (error) {
     if (!(error instanceof AuthError)) {
       sendError(
+        request,
         response,
         new AuthError("Refresh token is invalid or expired", 401),
         "refresh token"
       );
       return;
     }
-    sendError(response, error, "refresh token");
+    sendError(request, response, error, "refresh token");
   }
 }
 
@@ -264,18 +267,18 @@ export async function logout(
     return;
   }
 
-  console.info("Logging out session");
+  request.log.info("Logging out session");
   try {
     await SessionModel.deleteOne({ refreshToken: token });
-    console.info("Session logged out");
+    request.log.info("Session logged out");
     response.status(204).send();
   } catch (error) {
-    sendError(response, error, "logout");
+    sendError(request, response, error, "logout");
   }
 }
 
 export async function me(request: Request, response: Response): Promise<void> {
-  const { userId } = (request as AuthenticatedRequest).user;
+  const { userId } = (request as AuthenticatedRequest)?.user || {};
 
   try {
     const user = await UserModel.findById(userId);
@@ -285,9 +288,9 @@ export async function me(request: Request, response: Response): Promise<void> {
       return;
     }
 
-    console.info(`Returning profile for user ${userId}`);
+    request.log.info({ userId }, "Returning profile for user");
     response.json({ user: serializeUser(user) });
   } catch (error) {
-    sendError(response, error, "load user profile");
+    sendError(request, response, error, "load user profile");
   }
 }

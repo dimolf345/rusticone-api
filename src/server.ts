@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 
 import { app } from "./app.js";
 import { connectDatabase } from "./config/database.js";
+import { logger } from "./logger/index.js";
 
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST ?? "0.0.0.0";
@@ -14,29 +15,28 @@ async function startServer(): Promise<void> {
   await connectDatabase();
 
   const server: Server = app.listen(port, host, () => {
-    console.log(`Server listening on port ${port}`);
+    logger.info({ host, port }, "Server listening");
   });
 
   // Handle graceful shutdown on SIGTERM/SIGINT
   const shutdownHandler = async (signal: string) => {
-    console.log(`Received ${signal}, starting graceful shutdown...`);
+    logger.info({ signal }, "Starting graceful shutdown");
 
     server.close(async (error) => {
       if (error) {
-        console.error("Error closing server:", error);
+        logger.error({ err: error }, "Error closing server");
         process.exitCode = 1;
       }
 
       try {
         await mongoose.disconnect();
-        console.log("Mongoose disconnected successfully");
+        logger.info("Mongoose disconnected successfully");
         process.exit(process.exitCode || 0);
       } catch (disconnectError) {
-        const message =
-          disconnectError instanceof Error
-            ? disconnectError.message
-            : String(disconnectError);
-        console.error("Error disconnecting from MongoDB:", message);
+        logger.error(
+          { err: disconnectError },
+          "Error disconnecting from MongoDB"
+        );
         process.exitCode = 1;
         process.exit(1);
       }
@@ -44,7 +44,7 @@ async function startServer(): Promise<void> {
 
     // Force shutdown after 10 seconds if graceful shutdown times out
     setTimeout(() => {
-      console.error("Graceful shutdown timeout, forcing exit");
+      logger.error("Graceful shutdown timeout, forcing exit");
       process.exit(1);
     }, 10000);
   };
@@ -54,7 +54,6 @@ async function startServer(): Promise<void> {
 }
 
 startServer().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`Server startup failed: ${message}`);
+  logger.error({ err: error }, "Server startup failed");
   process.exitCode = 1;
 });
