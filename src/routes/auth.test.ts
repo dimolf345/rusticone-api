@@ -10,6 +10,7 @@ import { connectDatabase } from "../config/database.js";
 import { SessionModel, UserModel } from "../models/index.js";
 import { openApiDocument } from "../openapi.js";
 import { createLoggingMiddleware } from "../logger/middleware.js";
+import { errorHandler } from "../middleware/errorHandler.js";
 import { createAuthRouter } from "./auth.js";
 
 import { verifyRefreshToken } from "../utils/jwt.js";
@@ -54,6 +55,7 @@ function createTestApp() {
     })
   );
   app.get("/openapi.json", (_request, response) => response.json(openApiDocument));
+  app.use(errorHandler);
 
   return app;
 }

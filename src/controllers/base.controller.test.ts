@@ -4,6 +4,7 @@ import { test } from "node:test";
 import type { Response } from "express";
 
 import { BaseController } from "./base.controller.js";
+import { NotFoundError } from "../errors/index.js";
 import type {
   BaseServiceInterface,
   FindAllOptions
@@ -146,7 +147,7 @@ test("BaseController handles successful CRUD responses", async () => {
   assert.equal(deleteResponse.statusCode, 204);
 });
 
-test("BaseController returns 404 when an entity does not exist", async () => {
+test("BaseController throws NotFoundError when an entity does not exist", async () => {
   const controller = new TestController(
     createService({
       findOne: async () => null,
@@ -157,15 +158,20 @@ test("BaseController returns 404 when an entity does not exist", async () => {
   );
   const response = createResponse();
 
-  await controller.findOne(
-    requestWithLogger({ params: { id: "missing" } }),
-    response
+  await assert.rejects(
+    () =>
+      controller.findOne(
+        requestWithLogger({ params: { id: "missing" } }),
+        response
+      ),
+    (error: unknown) =>
+      error instanceof NotFoundError &&
+      error.statusCode === 404 &&
+      error.message === "item not found"
   );
-  assert.equal(response.statusCode, 404);
-  assert.deepEqual(response.body, { message: "item not found" });
 });
 
-test("BaseController returns 500 when a service operation fails", async () => {
+test("BaseController propagates service failures to the error handler", async () => {
   const controller = new TestController(
     createService({
       findAll: async () => {
@@ -176,7 +182,9 @@ test("BaseController returns 500 when a service operation fails", async () => {
   );
   const response = createResponse();
 
-  await controller.findAll(requestWithLogger({ query: {} }), response);
-  assert.equal(response.statusCode, 500);
-  assert.deepEqual(response.body, { message: "database unavailable" });
+  await assert.rejects(
+    () => controller.findAll(requestWithLogger({ query: {} }), response),
+    (error: unknown) =>
+      error instanceof Error && error.message === "database unavailable"
+  );
 });

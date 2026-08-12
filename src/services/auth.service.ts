@@ -1,5 +1,10 @@
 import jwt from "jsonwebtoken";
 
+import {
+    BadRequestError,
+    ConflictError,
+    InternalServerError
+} from "../errors/index.js";
 import { logger } from "../logger/index.js";
 import { AUTH_PROVIDERS, USER_ROLES, UserModel, type UserDocument } from "../models/user.js";
 import type {
@@ -20,21 +25,11 @@ type GoogleTokenPayload = {
 const defaultJwtSecret = process.env.JWT_SECRET ?? "rusticone-dev-session-secret";
 const defaultJwtExpiresIn = process.env.JWT_EXPIRES_IN ?? "7d";
 
-export class AuthError extends Error {
-    readonly statusCode: number;
-
-    constructor(message: string, statusCode = 400) {
-        super(message);
-        this.name = "AuthError";
-        this.statusCode = statusCode;
-    }
-}
-
 function createGoogleIdTokenVerifier(): (idToken: string) => Promise<GoogleAuthProfile> {
     const googleClientId = process.env.GOOGLE_CLIENT_ID;
 
     if (!googleClientId) {
-        throw new AuthError("GOOGLE_CLIENT_ID is required to verify Google sign-in", 500);
+        throw new InternalServerError("GOOGLE_CLIENT_ID is required to verify Google sign-in");
     }
 
     return async (idToken: string) => {
@@ -50,7 +45,7 @@ function createGoogleIdTokenVerifier(): (idToken: string) => Promise<GoogleAuthP
         const payload = ticket.getPayload();
 
         if (!payload) {
-            throw new AuthError("Unable to verify the Google token", 400);
+            throw new BadRequestError("Unable to verify the Google token");
         }
 
         return mapTokenPayloadToProfile(payload);
@@ -63,7 +58,7 @@ function mapTokenPayloadToProfile(payload: GoogleTokenPayload): GoogleAuthProfil
     const authProviderUserId = payload.sub?.trim();
 
     if (!email || !name || !authProviderUserId) {
-        throw new AuthError("Google token is missing required profile fields", 400);
+        throw new BadRequestError("Google token is missing required profile fields");
     }
 
     return {
@@ -128,7 +123,7 @@ export async function authenticateWithGoogle(
     const jwtExpiresIn = dependencies.jwtExpiresIn ?? defaultJwtExpiresIn;
 
     if (!idToken.trim()) {
-        throw new AuthError("idToken is required", 400);
+        throw new BadRequestError("idToken is required");
     }
 
     const profile = await verifyGoogleIdToken(idToken);
@@ -182,7 +177,7 @@ export async function authenticateWithGoogle(
                 { email: profile.email },
                 "Google auth rejected: email linked to a different Google account"
             );
-            throw new AuthError("Email is associated with a different Google account.", 409);
+            throw new ConflictError("Email is associated with a different Google account.");
         }
 
         matchedUser.authProvider = AUTH_PROVIDERS.Google;
@@ -200,9 +195,8 @@ export async function authenticateWithGoogle(
             { email: profile.email, authProviderUserId: profile.authProviderUserId },
             "Google auth rejected: ambiguous identity match"
         );
-        throw new AuthError(
-            "Ambiguous identity: multiple accounts match the provider ID and email.",
-            409
+        throw new ConflictError(
+            "Ambiguous identity: multiple accounts match the provider ID and email."
         );
     }
 

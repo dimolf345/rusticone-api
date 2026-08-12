@@ -1,18 +1,19 @@
 import type { NextFunction, Request, Response } from "express";
 
+import { UnauthorizedError } from "../errors/index.js";
 import { verifyAccessToken } from "../utils/jwt.js";
 import { AuthenticatedRequest } from "../interfaces/auth/index.js";
 
 
 export function authMiddleware(
   request: Request,
-  response: Response,
+  _response: Response,
   next: NextFunction
 ): void {
   const authorization = request.header("authorization");
 
   if (!authorization?.startsWith("Bearer ")) {
-    response.status(401).json({ message: "Access token is required" });
+    next(new UnauthorizedError("Access token is required"));
     return;
   }
 
@@ -20,9 +21,7 @@ export function authMiddleware(
     const token = authorization.slice(7);
     (request as AuthenticatedRequest).user = verifyAccessToken(token);
   } catch {
-    response
-      .status(401)
-      .json({ message: "Access token is invalid or expired" });
+    next(new UnauthorizedError("Access token is invalid or expired"));
     return;
   }
 

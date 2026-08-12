@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { NotFoundError } from "../errors/index.js";
 import type { BaseServiceInterface } from "../interfaces/base.interface.js";
 import type {
   CreateUserInput,
@@ -29,24 +30,12 @@ export class UserController extends BaseController<
   ): Promise<void> => {
     request.log.info(`Updating ${this.resourceName} ${request.params.id}`);
 
-    try {
-      const entity = await this.service.update(request.params.id, request.body);
+    const entity = await this.service.update(request.params.id, request.body);
 
-      if (!entity) {
-        response
-          .status(404)
-          .json({ message: `${this.resourceName} not found` });
-        return;
-      }
-
-      response.status(200).json(entity);
-    } catch (error) {
-      this.handleError(
-        request.log,
-        response,
-        `Unable to update ${this.resourceName}`,
-        error
-      );
+    if (!entity) {
+      throw new NotFoundError(`${this.resourceName} not found`);
     }
+
+    response.status(200).json(entity);
   };
 }

@@ -93,6 +93,21 @@ router.get(
   environments. Unexpected production errors return the generic
   `"Internal Server Error"` message and **never** expose stack traces.
 
+## Integration
+
+The strategy is wired through the existing layers:
+
+- **Controllers** (`base.controller.ts`, `user.controller.ts`, `auth.controller.ts`)
+  no longer use `try/catch` for flow control. They throw typed errors (e.g.
+  `NotFoundError`, `BadRequestError`, `UnauthorizedError`, `ConflictError`) and
+  let rejections bubble up.
+- **Services** (`auth.service.ts`) throw the same typed errors instead of a
+  bespoke `AuthError`.
+- **Auth middleware** (`auth.middleware.ts`, `is-admin.middleware.ts`) forward
+  `UnauthorizedError` / `ForbiddenError` through `next(err)`.
+- **Routes** (`routes/auth.ts`, `routes/user.ts`) wrap every handler with
+  `asyncHandler` so async rejections reach the centralized `errorHandler`.
+
 ## Tests
 
 Run the focused error-handling tests with:
