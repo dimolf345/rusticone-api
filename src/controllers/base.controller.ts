@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
-import type { Logger } from "pino";
 
+import { NotFoundError } from "../errors/index.js";
 import type {
     BaseControllerInterface,
     BaseServiceInterface,
@@ -56,17 +56,8 @@ export abstract class BaseController<
     ): Promise<void> => {
         request.log.info(`Creating ${this.resourceName}`);
 
-        try {
-            const entity = await this.service.createOne(request.body);
-            response.status(201).json(entity);
-        } catch (error) {
-            this.handleError(
-                request.log,
-                response,
-                `Unable to create ${this.resourceName}`,
-                error
-            );
-        }
+        const entity = await this.service.createOne(request.body);
+        response.status(201).json(entity);
     };
 
     /**
@@ -78,14 +69,9 @@ export abstract class BaseController<
     ): Promise<void> => {
         request.log.info(`Finding all ${this.resourceName}s`);
 
-        try {
-            const options = this.createFindAllOptions(request.query);
-            const result = await this.service.findAll(options);
-            response.status(200).json(result);
-        } catch (error) {
-            this.handleError(
-                request.log, response, `Unable to find ${this.resourceName}s`, error);
-        }
+        const options = this.createFindAllOptions(request.query);
+        const result = await this.service.findAll(options);
+        response.status(200).json(result);
     };
 
     /**
@@ -142,21 +128,13 @@ export abstract class BaseController<
     ): Promise<void> => {
         request.log.info(`Finding ${this.resourceName} ${request.params.id}`);
 
-        try {
-            const entity = await this.service.findOne(request.params.id);
+        const entity = await this.service.findOne(request.params.id);
 
-            if (!entity) {
-                response
-                    .status(404)
-                    .json({ message: `${this.resourceName} not found` });
-                return;
-            }
-
-            response.status(200).json(entity);
-        } catch (error) {
-            this.handleError(
-                request.log, response, `Unable to find ${this.resourceName}`, error);
+        if (!entity) {
+            throw new NotFoundError(`${this.resourceName} not found`);
         }
+
+        response.status(200).json(entity);
     };
 
     /**
@@ -168,25 +146,13 @@ export abstract class BaseController<
     ): Promise<void> => {
         request.log.info(`Updating ${this.resourceName} ${request.params.id}`);
 
-        try {
-            const entity = await this.service.update(request.params.id, request.body);
+        const entity = await this.service.update(request.params.id, request.body);
 
-            if (!entity) {
-                response
-                    .status(404)
-                    .json({ message: `${this.resourceName} not found` });
-                return;
-            }
-
-            response.status(200).json(entity);
-        } catch (error) {
-            this.handleError(
-                request.log,
-                response,
-                `Unable to update ${this.resourceName}`,
-                error
-            );
+        if (!entity) {
+            throw new NotFoundError(`${this.resourceName} not found`);
         }
+
+        response.status(200).json(entity);
     };
 
     /**
@@ -198,38 +164,12 @@ export abstract class BaseController<
     ): Promise<void> => {
         request.log.info(`Deleting ${this.resourceName} ${request.params.id}`);
 
-        try {
-            const entity = await this.service.delete(request.params.id);
+        const entity = await this.service.delete(request.params.id);
 
-            if (!entity) {
-                response
-                    .status(404)
-                    .json({ message: `${this.resourceName} not found` });
-                return;
-            }
-
-            response.status(204).send();
-        } catch (error) {
-            this.handleError(
-                request.log,
-                response,
-                `Unable to delete ${this.resourceName}`,
-                error
-            );
+        if (!entity) {
+            throw new NotFoundError(`${this.resourceName} not found`);
         }
-    };
 
-    /**
-     * Sends a standardized error response for controller failures.
-     */
-    protected handleError(
-        log: Logger,
-        response: Response,
-        message: string,
-        error: unknown
-    ): void {
-        const detail = error instanceof Error ? error.message : "Unexpected error";
-        log.error({ err: error }, message);
-        response.status(500).json({ message: detail });
-    }
+        response.status(204).send();
+    };
 }
