@@ -2,13 +2,33 @@ import { join } from "node:path";
 import pino, { type TransportTargetOptions } from "pino";
 import { redaction } from "./redactor.js";
 
-const consoleTarget: TransportTargetOptions = {
-  target: "pino-pretty",
-  options: {
-    colorize: true,
-    destination: 1
+/**
+ * Builds the console transport target for the active environment.
+ *
+ * Development uses `pino-pretty` for human-readable output, while production
+ * emits raw single-line JSON to stdout (destination 1) so log aggregators such
+ * as Datadog or ELK can ingest it directly.
+ */
+export function createConsoleTarget(
+  nodeEnv = process.env.NODE_ENV
+): TransportTargetOptions {
+  if (nodeEnv === "production") {
+    return {
+      target: "pino/file",
+      options: { destination: 1 }
+    };
   }
-};
+
+  return {
+    target: "pino-pretty",
+    options: {
+      colorize: true,
+      destination: 1
+    }
+  };
+}
+
+const consoleTarget: TransportTargetOptions = createConsoleTarget();
 
 const rotatingFileTarget: TransportTargetOptions = {
   target: "pino-roll",

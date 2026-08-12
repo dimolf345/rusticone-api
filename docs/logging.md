@@ -16,7 +16,7 @@ The default level is `info`.
 
 Every log event is routed to two destinations:
 
-- Console: human-readable `pino-pretty` output outside production and newline-delimited JSON in production.
+- Console: human-readable `pino-pretty` output outside production and raw newline-delimited JSON (via `pino/file` to stdout) in production, so aggregators such as Datadog or ELK can ingest it directly. The active target is selected by `createConsoleTarget` based on `NODE_ENV`.
 - Files: JSON logs under `logs/`, rotated daily by `pino-roll`, with at most 14 daily files retained including the active file.
 
 Generated files follow the `pino-roll` naming convention, for example:
@@ -75,10 +75,13 @@ Do not rely on redaction as a reason to log complete request bodies. Log only th
 
 ## Architecture
 
-- `src/logger/index.ts`: central logger and transport configuration.
+- `src/logger/index.ts`: central logger, environment-aware console target (`createConsoleTarget`), and transport configuration.
 - `src/logger/middleware.ts`: Express integration, correlation IDs, and HTTP levels.
 - `src/logger/redactor.ts`: shared redaction rules.
 - `src/logger/middleware.test.ts`: HTTP-level integration coverage.
+- `src/logger/index.test.ts`: console-target selection coverage for development and production.
+
+Application errors are logged by the centralized error handler; see `docs/error-handling.md`.
 
 The transport configuration is isolated from callers so local files can later be replaced by a cloud aggregation transport without changing application logging calls.
 

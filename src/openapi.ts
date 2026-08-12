@@ -176,6 +176,29 @@ export const openApiDocument = {
           avatarUrl: { type: "string", format: "uri" },
           emailVerified: { type: "boolean" }
         }
+      },
+      ErrorResponse: {
+        type: "object",
+        description:
+          "Standardized error payload returned by the centralized error handler.",
+        required: ["success", "status", "message"],
+        properties: {
+          success: { type: "boolean", enum: [false] },
+          status: {
+            type: "string",
+            enum: ["fail", "error"],
+            description: "\"fail\" for 4xx responses, \"error\" for 5xx responses"
+          },
+          message: {
+            type: "string",
+            description:
+              "Human-readable error message. Sanitized to a generic value for unexpected errors in production."
+          },
+          requestId: {
+            type: "string",
+            description: "Correlation ID for the request, matching the x-correlation-id header"
+          }
+        }
       }
     },
     securitySchemes: {
