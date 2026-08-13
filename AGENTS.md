@@ -8,6 +8,17 @@ This project is intentionally small, so organize code by scope rather than by fe
 
 Keep the structure simple and avoid introducing extra layers unless the codebase clearly needs them.
 
+## Interface naming convention
+
+All TypeScript interfaces must use the `I` prefix in their names, such as `IUser`, `IStoredUser`, `IAuthRouterDependencies`, and `IBaseServiceInterface`.
+
+Rules:
+1. Use `I` as the first character for every interface declaration and exported interface type.
+2. Keep names descriptive and domain-specific, with the `I` prefix applied consistently across related files.
+3. When a file exports multiple interfaces, each one still follows the same pattern (`I...`).
+4. Barrel exports and import statements must use the same `I...` names.
+5. Do not introduce plain interface names without the prefix for new code.
+
 ## Documentation
 
 For every feature or behavior change, add or update documentation under `docs/` describing the implemented behavior, configuration, usage, and relevant testing instructions. Documentation updates are part of the Definition of Done and must be committed with the feature.

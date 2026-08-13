@@ -1,3 +1,3 @@
-export interface GoogleAuthRequestBody {
+export interface IGoogleAuthRequestBody {
     idToken?: string;
 }

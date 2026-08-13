@@ -1,9 +1,9 @@
 import type { Model } from "mongoose";
 
 import type {
-  BaseServiceInterface,
-  FindAllOptions,
-  PaginatedResult
+  IBaseServiceInterface,
+  IFindAllOptions,
+  IPaginatedResult
 } from "../interfaces/base.interface.js";
 
 const DEFAULT_PAGE = 1;
@@ -26,7 +26,7 @@ export abstract class BaseService<
   TEntity,
   TCreate,
   TUpdate
-> implements BaseServiceInterface<TEntity, TCreate, TUpdate> {
+> implements IBaseServiceInterface<TEntity, TCreate, TUpdate> {
   protected constructor(protected readonly model: Model<TEntity>) { }
 
   async createOne(data: TCreate): Promise<TEntity> {
@@ -34,8 +34,8 @@ export abstract class BaseService<
   }
 
   async findAll(
-    options: FindAllOptions<TEntity> = {}
-  ): Promise<PaginatedResult<TEntity>> {
+    options: IFindAllOptions<TEntity> = {}
+  ): Promise<IPaginatedResult<TEntity>> {
     const page = normalizePositiveInteger(options.page, DEFAULT_PAGE);
     const limit = normalizePositiveInteger(
       options.limit,

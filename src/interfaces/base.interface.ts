@@ -4,13 +4,13 @@ export type EntityFilter<TEntity> = Partial<
   Record<Extract<keyof TEntity, string>, unknown>
 >;
 
-export interface FindAllOptions<TEntity> {
+export interface IFindAllOptions<TEntity> {
   filter?: EntityFilter<TEntity>;
   page?: number;
   limit?: number;
 }
 
-export interface PaginatedResult<TEntity> {
+export interface IPaginatedResult<TEntity> {
   data: TEntity[];
   pagination: {
     page: number;
@@ -20,23 +20,23 @@ export interface PaginatedResult<TEntity> {
   };
 }
 
-export interface BaseServiceInterface<TEntity, TCreate, TUpdate> {
+export interface IBaseServiceInterface<TEntity, TCreate, TUpdate> {
   createOne(data: TCreate): Promise<TEntity>;
-  findAll(options?: FindAllOptions<TEntity>): Promise<PaginatedResult<TEntity>>;
+  findAll(options?: IFindAllOptions<TEntity>): Promise<IPaginatedResult<TEntity>>;
   findOne(id: string): Promise<TEntity | null>;
   update(id: string, data: TUpdate): Promise<TEntity | null>;
   delete(id: string): Promise<TEntity | null>;
   isValidUpdate?(payload: TUpdate, ...args: unknown[]): boolean;
 }
 
-export interface BaseControllerInterface<TEntity, TCreate, TUpdate> {
+export interface IBaseControllerInterface<TEntity, TCreate, TUpdate> {
   createOne(
     request: Request<unknown, unknown, TCreate>,
     response: Response<TEntity>
   ): Promise<void>;
   findAll(
     request: Request,
-    response: Response<PaginatedResult<TEntity>>
+    response: Response<IPaginatedResult<TEntity>>
   ): Promise<void>;
   findOne(
     request: Request<{ id: string }>,

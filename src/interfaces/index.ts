@@ -1,23 +1,23 @@
 export type {
-  AuthRouterDependencies,
-  AuthenticatedGoogleUserResponse,
-  GoogleAuthProfile,
-  GoogleAuthRequestBody,
-  GoogleAuthServiceDependencies,
-  SerializedAuthUser
+  IAuthRouterDependencies,
+  IAuthenticatedGoogleUserResponse,
+  IGoogleAuthProfile,
+  IGoogleAuthRequestBody,
+  IGoogleAuthServiceDependencies,
+  ISerializedAuthUser
 } from "./auth/index.js";
 export type {
-  AdminUser,
-  BaseUser,
+  IAdminUser,
+  IBaseUser,
   CreateUserInput,
-  CustomerUser,
-  StoredUser,
+  ICustomerUser,
+  IStoredUser,
   UpdateUserInput
 } from "./user/index.js";
 export type {
-  BaseControllerInterface,
-  BaseServiceInterface,
+  IBaseControllerInterface,
+  IBaseServiceInterface,
   EntityFilter,
-  FindAllOptions,
-  PaginatedResult
+  IFindAllOptions,
+  IPaginatedResult
 } from "./base.interface.js";

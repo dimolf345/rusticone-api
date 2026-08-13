@@ -1,4 +1,4 @@
-export interface BaseUser {
+export interface IBaseUser {
   _id: string;
   role: string;
   email: string;
@@ -16,18 +16,18 @@ export interface BaseUser {
   dateOfBirth?: Date;
 }
 
-export interface AdminUser extends BaseUser {
+export interface IAdminUser extends IBaseUser {
   role: "admin";
 }
 
-export interface CustomerUser extends BaseUser {
+export interface ICustomerUser extends IBaseUser {
   role: "customer";
   deliveryAddress: string;
   telephoneNumber: string;
   fiscalCode: string;
 }
 
-export interface StoredUser extends BaseUser {
+export interface IStoredUser extends IBaseUser {
   emailVerified?: boolean;
   lastLoginAt?: Date;
   password?: string;
@@ -36,5 +36,5 @@ export interface StoredUser extends BaseUser {
   updatedAt: Date;
 }
 
-export type CreateUserInput = Omit<StoredUser, "createdAt" | "updatedAt">;
+export type CreateUserInput = Omit<IStoredUser, "createdAt" | "updatedAt">;
 export type UpdateUserInput = Partial<CreateUserInput>;

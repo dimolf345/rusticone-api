@@ -10,14 +10,14 @@ import {
   NotFoundError
 } from "../errors/index.js";
 
-interface LogRecord {
+interface ILogRecord {
   level: "warn" | "error";
   context: Record<string, unknown>;
   message: string;
 }
 
 function createRequest(overrides: Partial<Request> = {}) {
-  const records: LogRecord[] = [];
+  const records: ILogRecord[] = [];
   const log = {
     warn(context: Record<string, unknown>, message: string) {
       records.push({ level: "warn", context, message });
