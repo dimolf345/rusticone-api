@@ -1,4 +1,4 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { type Model, Schema } from "mongoose";
 import { IProductAddon } from "../interfaces/products/addon.interface.js";
 
 const addonSchema = new Schema<IProductAddon>({
@@ -22,4 +22,8 @@ const addonSchema = new Schema<IProductAddon>({
     }
 }, { versionKey: false });
 
-export const AddonModel = mongoose.model('Addon', addonSchema);
+type AddonModelType = Model<IProductAddon>;
+
+export const AddonModel =
+    (mongoose.models.Addon as AddonModelType | undefined) ??
+    mongoose.model<IProductAddon, AddonModelType>('Addon', addonSchema);

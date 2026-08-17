@@ -1,6 +1,7 @@
-import mongoose, { model, Schema } from "mongoose";
+import mongoose, { type Model, Schema } from "mongoose";
 import { IStoredProduct, PRODUCT_CATEGORIES } from "../interfaces/products/product.interface.js";
 import { IProductAddon } from "../interfaces/products/addon.interface.js";
+import { AddonModel } from "./addon.js";
 
 const productSchema = new Schema<IStoredProduct>({
     name: {
@@ -44,7 +45,6 @@ productSchema.post(['find', 'findOne'], async function (docs) {
     if (!docs) return;
 
     const records = Array.isArray(docs) ? docs : [docs];
-    const Addon = model('Addon'); // Target referenced model
 
     for (const doc of records) {
         if (!doc || !Array.isArray(doc.addons)) continue;
@@ -54,7 +54,7 @@ productSchema.post(['find', 'findOne'], async function (docs) {
             doc.addons.map(async (addonItem: IProductAddon) => {
                 // Case A: Item is a raw ObjectId string or Types.ObjectId
                 if (addonItem?.referenceId) {
-                    const fetchedAddon = await Addon.findById(addonItem?.referenceId).lean().exec();
+                    const fetchedAddon = await AddonModel.findById(addonItem?.referenceId).lean().exec();
                     return fetchedAddon || addonItem;
                 }
 
@@ -65,4 +65,8 @@ productSchema.post(['find', 'findOne'], async function (docs) {
     }
 });
 
-export const ProductModel = mongoose.model('Product', productSchema);
+type ProductModelType = Model<IStoredProduct>;
+
+export const ProductModel =
+    (mongoose.models.Product as ProductModelType | undefined) ??
+    mongoose.model<IStoredProduct, ProductModelType>('Product', productSchema);

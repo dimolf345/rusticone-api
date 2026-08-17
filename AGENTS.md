@@ -23,6 +23,8 @@ Rules:
 
 For every feature or behavior change, add or update documentation under `docs/` describing the implemented behavior, configuration, usage, and relevant testing instructions. Documentation updates are part of the Definition of Done and must be committed with the feature.
 
+Also keep the project model map in sync: update `models-map.md` whenever a new Mongo collection/model is added, or when an existing model is changed, renamed, or removed.
+
 ## Developing API endpoints
 
 When asked to develop new api endpoint, always be sure that the following items are included in the Definition of Done:
