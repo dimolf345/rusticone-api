@@ -12,7 +12,11 @@ import {
   verifyRefreshToken
 } from "../utils/jwt.js";
 
-import type { AuthenticatedRequest, GoogleAuthRequestBody, GoogleAuthServiceDependencies } from "../interfaces/auth/index.js";
+import type {
+  IAuthenticatedRequest,
+  IGoogleAuthRequestBody,
+  IGoogleAuthServiceDependencies
+} from "../interfaces/auth/index.js";
 import { authenticateWithGoogle } from "../services/auth.service.js";
 import {
   AppError,
@@ -22,8 +26,8 @@ import {
   UnauthorizedError
 } from "../errors/index.js";
 
-export function createGoogleAuthController(dependencies: GoogleAuthServiceDependencies = {}) {
-  return async (request: Request<unknown, unknown, GoogleAuthRequestBody>, response: Response): Promise<void> => {
+export function createGoogleAuthController(dependencies: IGoogleAuthServiceDependencies = {}) {
+  return async (request: Request<unknown, unknown, IGoogleAuthRequestBody>, response: Response): Promise<void> => {
     const idToken = request.body.idToken?.trim() ?? "";
 
     if (!idToken) {
@@ -234,7 +238,7 @@ export async function logout(
 }
 
 export async function me(request: Request, response: Response): Promise<void> {
-  const { userId } = (request as AuthenticatedRequest)?.user || {};
+  const { userId } = (request as IAuthenticatedRequest)?.user || {};
 
   const user = await UserModel.findById(userId);
 

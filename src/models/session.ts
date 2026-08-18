@@ -1,6 +1,6 @@
 import mongoose, { Schema, type HydratedDocument } from "mongoose";
 
-export interface Session {
+export interface ISession {
   userId: mongoose.Types.ObjectId;
   refreshToken: string;
   userAgent?: string;
@@ -9,9 +9,9 @@ export interface Session {
   expiresAt: Date;
 }
 
-export type SessionDocument = HydratedDocument<Session>;
+export type SessionDocument = HydratedDocument<ISession>;
 
-const sessionSchema = new Schema<Session>(
+const sessionSchema = new Schema<ISession>(
   {
     userId: {
       type: Schema.Types.ObjectId,
@@ -42,4 +42,4 @@ const sessionSchema = new Schema<Session>(
 );
 
 export const SessionModel =
-  mongoose.models.Session ?? mongoose.model<Session>("Session", sessionSchema);
+  mongoose.models.Session ?? mongoose.model<ISession>("Session", sessionSchema);

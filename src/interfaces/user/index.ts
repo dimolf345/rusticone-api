@@ -1,8 +1,8 @@
 export type {
-  AdminUser,
-  BaseUser,
+  IAdminUser,
+  IBaseUser,
   CreateUserInput,
-  CustomerUser,
-  StoredUser,
+  ICustomerUser,
+  IStoredUser,
   UpdateUserInput,
 } from "./user.interface.js";

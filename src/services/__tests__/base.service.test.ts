@@ -4,17 +4,17 @@ import { test } from "node:test";
 import { BaseService } from "./base.service.js";
 import type { Model } from "mongoose";
 
-interface Item {
+interface IItem {
   id: string;
   name: string;
 }
 
 class TestService extends BaseService<
-  Item,
-  Omit<Item, "id">,
-  Partial<Omit<Item, "id">>
+  IItem,
+  Omit<IItem, "id">,
+  Partial<Omit<IItem, "id">>
 > {
-  constructor(model: Model<Item>) {
+  constructor(model: Model<IItem>) {
     super(model);
   }
 }
@@ -23,7 +23,7 @@ function createModel() {
   const calls: Array<[string, ...unknown[]]> = [];
   const result = (value: unknown) => ({ exec: async () => value });
   const model = {
-    create: async (data: Omit<Item, "id">) => ({ id: "1", ...data }),
+    create: async (data: Omit<IItem, "id">) => ({ id: "1", ...data }),
     find: (filter: unknown) => {
       calls.push(["find", filter]);
       return {
@@ -46,7 +46,7 @@ function createModel() {
       calls.push(["findById", id]);
       return result({ id, name: "Pizza" });
     },
-    findByIdAndUpdate: (id: string, data: Partial<Item>, options: unknown) => {
+    findByIdAndUpdate: (id: string, data: Partial<IItem>, options: unknown) => {
       calls.push(["findByIdAndUpdate", id, data, options]);
       return result({ id, ...data });
     },
@@ -54,7 +54,7 @@ function createModel() {
       calls.push(["findByIdAndDelete", id]);
       return result({ id, name: "Pizza" });
     }
-  } as unknown as Model<Item>;
+  } as unknown as Model<IItem>;
 
   return { model, calls };
 }

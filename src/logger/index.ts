@@ -23,7 +23,11 @@ export function createConsoleTarget(
     target: "pino-pretty",
     options: {
       colorize: true,
-      destination: 1
+      destination: 1,
+      // Formats timestamp in local readable date/time for CLI
+      translateTime: "SYS:yyyy-mm-dd HH:MM:ss.l",
+      // Suppresses verbose system metadata in dev terminal
+      ignore: "pid,hostname,req.headers,res.headers"
     }
   };
 }
@@ -51,7 +55,9 @@ const transport = pino.transport({
 export const logger = pino(
   {
     level: process.env.LOG_LEVEL ?? "info",
-    redact: redaction
+    redact: redaction,
+    // Converts default Unix epoch integer to standard ISO 8601 date string
+    timestamp: pino.stdTimeFunctions.isoTime
   },
   transport
 );

@@ -1,7 +1,7 @@
-import type { GoogleAuthProfile } from "./google-auth-profile.interface.js";
+import type { IGoogleAuthProfile } from "./google-auth-profile.interface.js";
 
-export interface GoogleAuthServiceDependencies {
-    verifyGoogleIdToken?: (idToken: string) => Promise<GoogleAuthProfile>;
+export interface IGoogleAuthServiceDependencies {
+    verifyGoogleIdToken?: (idToken: string) => Promise<IGoogleAuthProfile>;
     jwtSecret?: string;
     jwtExpiresIn?: string | number;
 }

@@ -2,10 +2,10 @@ import type { Request, Response } from "express";
 
 import { NotFoundError } from "../errors/index.js";
 import type {
-    BaseControllerInterface,
-    BaseServiceInterface,
+    IBaseControllerInterface,
+    IBaseServiceInterface,
     EntityFilter,
-    FindAllOptions
+    IFindAllOptions
 } from "../interfaces/base.interface.js";
 
 const DEFAULT_PAGE = 1;
@@ -37,9 +37,9 @@ export abstract class BaseController<
     TEntity,
     TCreate,
     TUpdate
-> implements BaseControllerInterface<TEntity, TCreate, TUpdate> {
+> implements IBaseControllerInterface<TEntity, TCreate, TUpdate> {
     constructor(
-        protected readonly service: BaseServiceInterface<TEntity, TCreate, TUpdate>,
+        protected readonly service: IBaseServiceInterface<TEntity, TCreate, TUpdate>,
         private readonly _resourceName = "resource"
     ) { }
 
@@ -80,7 +80,7 @@ export abstract class BaseController<
      */
     public createFindAllOptions(
         query: Request["query"]
-    ): FindAllOptions<TEntity> {
+    ): IFindAllOptions<TEntity> {
         const filter: Record<string, unknown> = Object.create(null);
 
         if (query && typeof query === "object") {

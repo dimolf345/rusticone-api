@@ -5,8 +5,10 @@ import helmet from "helmet";
 import { loggingMiddleware } from "./logger/middleware.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { openApiDocument } from "./openapi.js";
+import { addonsRouter } from "./routes/addon.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
+import { productsRouter } from "./routes/product.js";
 import { userRouter } from "./routes/user.js";
 
 export const app = express();
@@ -23,6 +25,8 @@ app.get("/openapi.json", (_request, response) => {
 app.use("/api/auth", authRouter);
 app.use("/api/health", healthRouter);
 app.use("/api/users", userRouter);
+app.use("/api/addons", addonsRouter);
+app.use("/api/products", productsRouter);
 
 // Centralized error handler must be registered after all routes.
 app.use(errorHandler);

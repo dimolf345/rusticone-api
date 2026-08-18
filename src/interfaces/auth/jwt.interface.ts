@@ -1,10 +1,10 @@
-export interface AccessTokenPayload {
+export interface IAccessTokenPayload {
     userId: string;
     email: string;
     role: string;
 }
 
-export interface RefreshTokenPayload {
+export interface IRefreshTokenPayload {
     userId: string;
     expiresAt: Date;
 }

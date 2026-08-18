@@ -8,10 +8,10 @@ import {
 import { logger } from "../logger/index.js";
 import { AUTH_PROVIDERS, USER_ROLES, UserModel, type UserDocument } from "../models/user.js";
 import type {
-    AuthenticatedGoogleUserResponse,
-    GoogleAuthProfile,
-    GoogleAuthServiceDependencies,
-    SerializedAuthUser
+    IAuthenticatedGoogleUserResponse,
+    IGoogleAuthProfile,
+    IGoogleAuthServiceDependencies,
+    ISerializedAuthUser
 } from "../interfaces/auth/index.js";
 
 type GoogleTokenPayload = {
@@ -25,7 +25,7 @@ type GoogleTokenPayload = {
 const defaultJwtSecret = process.env.JWT_SECRET ?? "rusticone-dev-session-secret";
 const defaultJwtExpiresIn = process.env.JWT_EXPIRES_IN ?? "7d";
 
-function createGoogleIdTokenVerifier(): (idToken: string) => Promise<GoogleAuthProfile> {
+function createGoogleIdTokenVerifier(): (idToken: string) => Promise<IGoogleAuthProfile> {
     const googleClientId = process.env.GOOGLE_CLIENT_ID;
 
     if (!googleClientId) {
@@ -52,7 +52,7 @@ function createGoogleIdTokenVerifier(): (idToken: string) => Promise<GoogleAuthP
     };
 }
 
-function mapTokenPayloadToProfile(payload: GoogleTokenPayload): GoogleAuthProfile {
+function mapTokenPayloadToProfile(payload: GoogleTokenPayload): IGoogleAuthProfile {
     const email = payload.email?.trim().toLowerCase();
     const name = payload.name?.trim();
     const authProviderUserId = payload.sub?.trim();
@@ -70,12 +70,12 @@ function mapTokenPayloadToProfile(payload: GoogleTokenPayload): GoogleAuthProfil
     };
 }
 
-function serializeUser(user: UserDocument): SerializedAuthUser {
+function serializeUser(user: UserDocument): ISerializedAuthUser {
     return {
         id: user._id.toString(),
         role: user.role,
         email: user.email,
-        name: user.name,
+        name: user.name ?? "",
         authProvider: user.authProvider,
         authProviderUserId: user.authProviderUserId,
         avatarUrl: user.avatarUrl,
@@ -116,8 +116,8 @@ function resolveJwtSecret(suppliedSecret?: string): string {
 
 export async function authenticateWithGoogle(
     idToken: string,
-    dependencies: GoogleAuthServiceDependencies = {}
-): Promise<AuthenticatedGoogleUserResponse> {
+    dependencies: IGoogleAuthServiceDependencies = {}
+): Promise<IAuthenticatedGoogleUserResponse> {
     const verifyGoogleIdToken = dependencies.verifyGoogleIdToken ?? createGoogleIdTokenVerifier();
     const jwtSecret = resolveJwtSecret(dependencies.jwtSecret);
     const jwtExpiresIn = dependencies.jwtExpiresIn ?? defaultJwtExpiresIn;
