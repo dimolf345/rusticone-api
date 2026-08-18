@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import type { Logger } from "pino";
 import { pinoHttp } from "pino-http";
 
@@ -8,29 +6,27 @@ import { logger } from "./index.js";
 export function createLoggingMiddleware(httpLogger: Logger = logger) {
   return pinoHttp({
     logger: httpLogger,
-    genReqId(request, response) {
-      const suppliedId = request.headers["x-correlation-id"];
-      const correlationId =
-        typeof suppliedId === "string" && suppliedId.trim().length > 0
-          ? suppliedId
-          : randomUUID();
 
-      response.setHeader("x-correlation-id", correlationId);
-      return correlationId;
-    },
-    customProps(request) {
-      return { correlationId: request.id };
-    },
-    customLogLevel(_request, response, error) {
-      if (error || response.statusCode >= 500) {
-        return "error";
+    // Custom serializers strip out request/response headers and connection noise
+    serializers: {
+      req(req) {
+        return {
+          id: req.id,
+          method: req.method,
+          url: req.url,
+          ...(Object.keys(req.query || {}).length > 0 && { query: req.query })
+        };
+      },
+      res(res) {
+        return {
+          statusCode: res.statusCode
+        };
       }
+    },
 
-      if (response.statusCode >= 400) {
-        return "warn";
-      }
-
-      return "info";
+    // Simplifies the log message summary
+    customSuccessMessage(req, res, responseTime) {
+      return `${req.method} ${req.url} ${res.statusCode} - ${responseTime}ms`;
     }
   });
 }

@@ -1,12 +1,14 @@
 export type {
-  AdminUser,
-  BaseUser,
+  IAdminUser,
+  IBaseUser,
   CreateUserInput,
-  CustomerUser,
-  StoredUser,
+  ICustomerUser,
+  IStoredUser,
   UpdateUserInput
 } from "../interfaces/user/index.js";
 export { SessionModel } from "./session.js";
-export type { Session, SessionDocument } from "./session.js";
+export type { ISession, SessionDocument } from "./session.js";
 export { AUTH_PROVIDERS, USER_ROLES, UserModel } from "./user.js";
+export * from './addon.js';
+export * from './product.js';
 

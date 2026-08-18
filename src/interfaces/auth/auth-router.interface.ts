@@ -1,4 +1,4 @@
-export interface AuthRouterDependencies {
+export interface IAuthRouterDependencies {
     verifyGoogleIdToken?: (idToken: string) => Promise<{
         authProviderUserId: string;
         email: string;

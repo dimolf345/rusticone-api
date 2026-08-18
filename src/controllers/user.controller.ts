@@ -1,22 +1,22 @@
 import { Request, Response } from "express";
 import { NotFoundError } from "../errors/index.js";
-import type { BaseServiceInterface } from "../interfaces/base.interface.js";
+import type { IBaseServiceInterface } from "../interfaces/base.interface.js";
 import type {
   CreateUserInput,
-  StoredUser,
+  IStoredUser,
   UpdateUserInput
 } from "../interfaces/user/index.js";
 import { BaseController } from "./base.controller.js";
 import { UserService } from "../services/user.service.js";
 
 export class UserController extends BaseController<
-  StoredUser,
+  IStoredUser,
   CreateUserInput,
   UpdateUserInput
 > {
   constructor(
-    service: BaseServiceInterface<
-      StoredUser,
+    service: IBaseServiceInterface<
+      IStoredUser,
       CreateUserInput,
       UpdateUserInput
     > = new UserService()

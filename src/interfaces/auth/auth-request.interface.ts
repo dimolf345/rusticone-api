@@ -1,6 +1,6 @@
 import { Request } from "express";
-import { AccessTokenPayload } from "./jwt.interface.js";
+import { IAccessTokenPayload } from "./jwt.interface.js";
 
-export interface AuthenticatedRequest extends Request {
-    user?: AccessTokenPayload;
+export interface IAuthenticatedRequest extends Request {
+    user?: IAccessTokenPayload;
 }

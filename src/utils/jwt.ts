@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import jwt, { type JwtPayload } from "jsonwebtoken";
 
-import { AccessTokenPayload, RefreshTokenPayload } from "../interfaces/auth/jwt.interface.js";
+import { IAccessTokenPayload, IRefreshTokenPayload } from "../interfaces/auth/jwt.interface.js";
 import type { UserDocument } from "../models/user.js";
 
 function getSecret(name: "JWT_ACCESS_SECRET" | "JWT_REFRESH_SECRET"): string {
@@ -38,7 +38,7 @@ export function generateRefreshToken(user: UserDocument): string {
   );
 }
 
-export function verifyAccessToken(token: string): AccessTokenPayload {
+export function verifyAccessToken(token: string): IAccessTokenPayload {
   const payload = jwt.verify(token, getSecret("JWT_ACCESS_SECRET"));
 
   if (
@@ -52,7 +52,7 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
   return { userId: payload.userId, email: payload.email, role: payload.role };
 }
 
-export function verifyRefreshToken(token: string): RefreshTokenPayload {
+export function verifyRefreshToken(token: string): IRefreshTokenPayload {
   const payload = jwt.verify(token, getSecret("JWT_REFRESH_SECRET"));
 
   if (

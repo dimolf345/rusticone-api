@@ -19,7 +19,7 @@ process.env.JWT_ACCESS_SECRET = "test-access-secret";
 process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
 process.env.JWT_REFRESH_EXPIRES_IN = "30d";
 
-interface AuthResponse {
+interface IAuthResponse {
   accessToken: string;
   refreshToken: string;
   user: {
@@ -201,7 +201,7 @@ describe.skip("authentication API", () => {
     });
 
     assert.equal(registerResponse.status, 201);
-    const registered = (await registerResponse.json()) as AuthResponse;
+    const registered = (await registerResponse.json()) as IAuthResponse;
     assert.equal(registered.user.email, "customer@example.com");
     assert.ok(registered.accessToken);
     assert.ok(registered.refreshToken);
@@ -247,7 +247,7 @@ describe.skip("authentication API", () => {
       })
     });
     assert.equal(loginResponse.status, 200);
-    const loggedIn = (await loginResponse.json()) as AuthResponse;
+    const loggedIn = (await loginResponse.json()) as IAuthResponse;
 
     const refreshResponse = await fetch(`${baseUrl}/api/auth/refresh`, {
       method: "POST",

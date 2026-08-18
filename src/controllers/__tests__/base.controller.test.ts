@@ -6,19 +6,19 @@ import type { Response } from "express";
 import { BaseController } from "./base.controller.js";
 import { NotFoundError } from "../errors/index.js";
 import type {
-  BaseServiceInterface,
-  FindAllOptions
+  IBaseServiceInterface,
+  IFindAllOptions
 } from "../interfaces/base.interface.js";
 
-interface Item {
+interface IItem {
   id: string;
   name: string;
 }
 
-type CreateItem = Omit<Item, "id">;
+type CreateItem = Omit<IItem, "id">;
 type UpdateItem = Partial<CreateItem>;
 
-class TestController extends BaseController<Item, CreateItem, UpdateItem> { }
+class TestController extends BaseController<IItem, CreateItem, UpdateItem> { }
 
 function createResponse() {
   const response = {
@@ -41,7 +41,7 @@ function createResponse() {
 }
 
 function createService(
-  overrides: Partial<BaseServiceInterface<Item, CreateItem, UpdateItem>> = {}
+  overrides: Partial<IBaseServiceInterface<IItem, CreateItem, UpdateItem>> = {}
 ) {
   return {
     createOne: async (data: CreateItem) => ({ id: "1", ...data }),
@@ -56,7 +56,7 @@ function createService(
     }),
     delete: async (id: string) => ({ id, name: "Pizza" }),
     ...overrides
-  } satisfies BaseServiceInterface<Item, CreateItem, UpdateItem>;
+  } satisfies IBaseServiceInterface<IItem, CreateItem, UpdateItem>;
 }
 
 const request = <T>(value: T) => value as never;
@@ -76,7 +76,7 @@ const requestWithLogger = <T>(value: T) =>
   }) as never;
 
 test("BaseController handles successful CRUD responses", async () => {
-  let findAllOptions: FindAllOptions<Item> | undefined;
+  let findAllOptions: IFindAllOptions<IItem> | undefined;
   const controller = new TestController(
     createService({
       findAll: async (options) => {

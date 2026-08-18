@@ -1,4 +1,4 @@
-export interface SerializedAuthUser {
+export interface ISerializedAuthUser {
     id: string;
     role: string;
     email: string;
@@ -12,8 +12,8 @@ export interface SerializedAuthUser {
     updatedAt: string;
 }
 
-export interface AuthenticatedGoogleUserResponse {
+export interface IAuthenticatedGoogleUserResponse {
     accessToken: string;
     isNewUser: boolean;
-    user: SerializedAuthUser;
+    user: ISerializedAuthUser;
 }

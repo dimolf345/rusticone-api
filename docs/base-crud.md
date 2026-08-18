@@ -14,16 +14,16 @@ Both classes use the same three generic types:
 The contracts are defined in `src/interfaces/base.interface.ts`:
 
 ```ts
-interface BaseServiceInterface<TEntity, TCreate, TUpdate> {
+interface IBaseServiceInterface<TEntity, TCreate, TUpdate> {
   createOne(data: TCreate): Promise<TEntity>;
-  findAll(options?: FindAllOptions<TEntity>): Promise<PaginatedResult<TEntity>>;
+  findAll(options?: IFindAllOptions<TEntity>): Promise<IPaginatedResult<TEntity>>;
   findOne(id: string): Promise<TEntity | null>;
   update(id: string, data: TUpdate): Promise<TEntity | null>;
   delete(id: string): Promise<TEntity | null>;
 }
 ```
 
-`BaseControllerInterface` exposes corresponding Express request handlers.
+`IBaseControllerInterface` exposes corresponding Express request handlers.
 
 ## Default behavior
 

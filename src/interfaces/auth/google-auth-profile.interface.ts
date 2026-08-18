@@ -1,4 +1,4 @@
-export interface GoogleAuthProfile {
+export interface IGoogleAuthProfile {
     authProviderUserId: string;
     email: string;
     name: string;

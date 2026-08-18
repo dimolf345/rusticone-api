@@ -9,7 +9,7 @@ import pino from "pino";
 import { createLoggingMiddleware } from "./middleware.js";
 import { redaction } from "./redactor.js";
 
-test("logs requests with correlation IDs, status levels, and redaction", async () => {
+test("logs requests with generated request IDs, status levels, and redaction", async () => {
   const records: Array<Record<string, unknown>> = [];
   const stream = new Writable({
     write(chunk, _encoding, callback) {
@@ -54,8 +54,7 @@ test("logs requests with correlation IDs, status levels, and redaction", async (
         token: "secret-token"
       })
     });
-    const generatedId = generatedIdResponse.headers.get("x-correlation-id");
-    assert.match(generatedId ?? "", /^[0-9a-f-]{36}$/i);
+    assert.equal(generatedIdResponse.headers.get("x-correlation-id"), null);
     await generatedIdResponse.text();
 
     const suppliedId = "client-correlation-id";
@@ -63,7 +62,7 @@ test("logs requests with correlation IDs, status levels, and redaction", async (
       method: "POST",
       headers: { "x-correlation-id": suppliedId }
     });
-    assert.equal(warningResponse.headers.get("x-correlation-id"), suppliedId);
+    assert.equal(warningResponse.headers.get("x-correlation-id"), null);
     await warningResponse.text();
 
     const errorResponse = await fetch(`${baseUrl}/500`, { method: "POST" });
@@ -72,13 +71,16 @@ test("logs requests with correlation IDs, status levels, and redaction", async (
 
     const completionRecords = records.filter(
       (record) =>
-        record.msg === "request completed" || record.msg === "request errored"
+        typeof record.msg === "string" &&
+        (record.msg === "request errored" || /^POST \/.* \d{3} - \d+ms$/.test(record.msg))
     );
+    assert.deepEqual(completionRecords.map((record) => record.level), [30, 30, 30]);
     assert.deepEqual(
-      completionRecords.map((record) => record.level),
-      [30, 40, 50]
+      completionRecords.map(
+        (record) => record.req && (record.req as Record<string, unknown>).id
+      ),
+      [1, 2, 3]
     );
-    assert.equal(completionRecords[1]?.correlationId, suppliedId);
 
     const serializedRecords = JSON.stringify(records);
     assert.doesNotMatch(

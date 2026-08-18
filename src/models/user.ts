@@ -1,5 +1,5 @@
 import mongoose, { Schema, type HydratedDocument, type Model } from "mongoose";
-import type { AdminUser, CustomerUser, StoredUser } from "../interfaces/user/index.js";
+import type { IAdminUser, ICustomerUser, IStoredUser } from "../interfaces/user/index.js";
 import bcrypt from "bcryptjs";
 
 export const USER_ROLES = {
@@ -14,21 +14,21 @@ export const AUTH_PROVIDERS = {
 } as const;
 
 
-interface UserMethods {
+interface IUserMethods {
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
-type UserModelType = Model<StoredUser, object, UserMethods>;
-export type UserDocument = HydratedDocument<StoredUser, UserMethods>;
+type UserModelType = Model<IStoredUser, object, IUserMethods>;
+export type UserDocument = HydratedDocument<IStoredUser, IUserMethods>;
 
 
 export type AuthProvider = (typeof AUTH_PROVIDERS)[keyof typeof AUTH_PROVIDERS];
 
 export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
 
-export type User = AdminUser | CustomerUser;
+export type User = IAdminUser | ICustomerUser;
 
-const userSchema = new Schema<StoredUser, UserModelType, UserMethods>(
+const userSchema = new Schema<IStoredUser, UserModelType, IUserMethods>(
   {
     role: {
       type: String,
@@ -46,7 +46,7 @@ const userSchema = new Schema<StoredUser, UserModelType, UserMethods>(
     },
     name: {
       type: String,
-      required(this: StoredUser) {
+      required(this: IStoredUser) {
         return this.role === USER_ROLES.Customer;
       },
       unique: false,
@@ -61,7 +61,7 @@ const userSchema = new Schema<StoredUser, UserModelType, UserMethods>(
     },
     username: {
       type: String,
-      required(this: StoredUser) {
+      required(this: IStoredUser) {
         return this.role === USER_ROLES.Admin;
       },
       trim: true,
@@ -70,14 +70,14 @@ const userSchema = new Schema<StoredUser, UserModelType, UserMethods>(
     },
     deliveryAddress: {
       type: String,
-      required(this: StoredUser) {
+      required(this: IStoredUser) {
         return false;
         // return this.role === USER_ROLES.Customer;
       }
     },
     telephoneNumber: {
       type: String,
-      required(this: StoredUser) {
+      required(this: IStoredUser) {
         return false;
         // return this.role === USER_ROLES.Customer;
       },
@@ -97,7 +97,7 @@ const userSchema = new Schema<StoredUser, UserModelType, UserMethods>(
     password: {
       type: String,
       select: false,
-      required(this: StoredUser) {
+      required(this: IStoredUser) {
         return this.authProvider === AUTH_PROVIDERS.Local;
       }
     },
@@ -160,4 +160,4 @@ userSchema.methods.comparePassword = async function (
 
 export const UserModel =
   (mongoose.models.User as UserModelType | undefined) ??
-  mongoose.model<StoredUser, UserModelType>("User", userSchema);
+  mongoose.model<IStoredUser, UserModelType>("User", userSchema);

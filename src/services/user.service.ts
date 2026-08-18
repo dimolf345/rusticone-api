@@ -2,19 +2,19 @@ import type { Model } from "mongoose";
 
 import type {
   CreateUserInput,
-  StoredUser,
+  IStoredUser,
   UpdateUserInput
 } from "../interfaces/user/index.js";
 import { USER_ROLES, UserModel } from "../models/user.js";
 import { BaseService } from "./base.service.js";
-import { AccessTokenPayload } from "../interfaces/auth/jwt.interface.js";
+import { IAccessTokenPayload } from "../interfaces/auth/jwt.interface.js";
 
 export class UserService extends BaseService<
-  StoredUser,
+  IStoredUser,
   CreateUserInput,
   UpdateUserInput
 > {
-  constructor(model: Model<StoredUser> = UserModel) {
+  constructor(model: Model<IStoredUser> = UserModel) {
     super(model);
   }
 
@@ -26,7 +26,7 @@ export class UserService extends BaseService<
    * @param userInfo 
    * @returns 
    */
-  isValidUpdate(payload: Partial<CreateUserInput>, userInfo: AccessTokenPayload): boolean {
+  isValidUpdate(payload: Partial<CreateUserInput>, userInfo: IAccessTokenPayload): boolean {
     if (payload.role === USER_ROLES.Admin) {
       return userInfo.role === USER_ROLES.Admin;
     } else {
