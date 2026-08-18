@@ -1,3 +1,5 @@
+import type { UserDocument } from "../../models/user.js";
+
 export interface ISerializedAuthUser {
     id: string;
     role: string;
@@ -16,4 +18,9 @@ export interface IAuthenticatedGoogleUserResponse {
     accessToken: string;
     isNewUser: boolean;
     user: ISerializedAuthUser;
+}
+
+export interface IGoogleAuthResult {
+    user: UserDocument;
+    isNewUser: boolean;
 }

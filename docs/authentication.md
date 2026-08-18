@@ -24,7 +24,31 @@ Each refresh-token session stores the expiration timestamp from the token's sign
 3. Exchange the refresh token for a new access token when the access token expires.
 4. Log out with the refresh token to remove that session.
 
-Each registration or login creates a separate session, allowing a user to remain authenticated on multiple devices. Sessions record the request IP address and user agent. MongoDB automatically removes expired sessions through a TTL index.
+## Sessions and IP scoping
+
+Every access token is bound to a specific session through a `sid` claim. Protected
+requests are validated statefully: the auth middleware loads the session referenced by
+`sid` on every request and rejects the token as soon as that session is gone. This makes
+session revocation take effect immediately rather than waiting for the access token to
+expire.
+
+On each login (local register, local login, and Google sign-in) the API:
+
+1. Creates a new session that records the request IP address and user agent.
+2. Deletes every other session for that user whose IP address differs from the current
+   request (`revokeSessionsFromOtherIps`).
+
+The practical effect:
+
+- **Same workstation, multiple tabs:** the frontend reuses the stored access token, so no
+  new login happens and all tabs keep working. A re-login from the same IP does not
+  invalidate the existing same-IP sessions.
+- **Different IP address:** a login from a new IP invalidates the older sessions from other
+  IPs. Their access tokens stop working on the next protected request, and their refresh
+  tokens can no longer be exchanged.
+
+`request.ip` reflects the real client because the app enables Express `trust proxy` (first
+hop), reading the client address from `X-Forwarded-For`.
 
 ## Endpoints
 
@@ -146,7 +170,9 @@ Logout is idempotent: a well-formed request receives `204 No Content` even when 
 
 `GET /api/auth/me`
 
-Returns the profile associated with a valid access token.
+Returns the profile associated with a valid access token. The middleware also verifies that
+the token's session is still active, so a token whose session was revoked by a different-IP
+login returns `401 Unauthorized`.
 
 Request header:
 
@@ -180,8 +206,10 @@ Errors:
 
 - Passwords are hashed with bcrypt using a cost factor of 12 and are excluded from queries by default.
 - Access and refresh tokens use separate secrets and expiration settings.
+- Access tokens carry a `sid` claim and are validated against a live session on every protected request, so a revoked session is rejected immediately.
+- A login from a new IP address revokes the user's sessions from other IPs; same-IP sessions (for example, multiple browser tabs) are preserved.
 - Refresh tokens are checked against persistent sessions, enabling per-device logout.
-- Access tokens contain the user ID and email. Refresh tokens contain the user ID and a unique JWT ID.
+- Access tokens contain the user ID, email, and session ID. Refresh tokens contain the user ID and a unique JWT ID.
 - API responses never include password hashes.
 
 Refresh tokens are credentials and must be stored securely by clients. Do not log tokens or include them in URLs.

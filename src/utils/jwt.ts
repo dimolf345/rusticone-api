@@ -15,9 +15,9 @@ function getSecret(name: "JWT_ACCESS_SECRET" | "JWT_REFRESH_SECRET"): string {
   return secret;
 }
 
-export function generateAccessToken(user: UserDocument): string {
+export function generateAccessToken(user: UserDocument, sessionId: string): string {
   return jwt.sign(
-    { userId: user._id.toString(), email: user.email, role: user.role },
+    { userId: user._id.toString(), email: user.email, role: user.role, sid: sessionId },
     getSecret("JWT_ACCESS_SECRET"),
     {
       expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN ??
@@ -44,12 +44,13 @@ export function verifyAccessToken(token: string): IAccessTokenPayload {
   if (
     !isJwtPayload(payload) ||
     typeof payload.userId !== "string" ||
-    typeof payload.email !== "string"
+    typeof payload.email !== "string" ||
+    typeof payload.sid !== "string"
   ) {
     throw new Error("Invalid access token payload");
   }
 
-  return { userId: payload.userId, email: payload.email, role: payload.role };
+  return { userId: payload.userId, email: payload.email, role: payload.role, sid: payload.sid };
 }
 
 export function verifyRefreshToken(token: string): IRefreshTokenPayload {

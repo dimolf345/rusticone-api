@@ -6,11 +6,7 @@ import {
   UserModel
 } from "../models/index.js";
 import type { UserDocument } from "../models/user.js";
-import {
-  generateAccessToken,
-  generateRefreshToken,
-  verifyRefreshToken
-} from "../utils/jwt.js";
+import { generateAccessToken, verifyRefreshToken } from "../utils/jwt.js";
 
 import type {
   IAuthenticatedRequest,
@@ -18,6 +14,10 @@ import type {
   IGoogleAuthServiceDependencies
 } from "../interfaces/auth/index.js";
 import { authenticateWithGoogle } from "../services/auth.service.js";
+import {
+  createSession,
+  revokeSessionsFromOtherIps
+} from "../services/session.service.js";
 import {
   AppError,
   BadRequestError,
@@ -36,16 +36,21 @@ export function createGoogleAuthController(dependencies: IGoogleAuthServiceDepen
 
     request.log.info("Google auth request received");
 
-    const authResult = await authenticateWithGoogle(idToken, dependencies);
+    const { user, isNewUser } = await authenticateWithGoogle(idToken, dependencies);
+    const { refreshToken, sessionId } = await createSession(request, user);
+    await revokeSessionsFromOtherIps(user._id, request.ip);
 
     request.log.info(
-      { email: authResult.user.email, isNewUser: authResult.isNewUser },
-      `Google auth completed (${authResult.isNewUser ? "sign-up" : "login"})`
+      { email: user.email, isNewUser },
+      `Google auth completed (${isNewUser ? "sign-up" : "login"})`
     );
 
-    response.status(authResult.isNewUser ? 201 : 200).json({
-      message: authResult.isNewUser ? "User created with Google sign-up" : "User logged in with Google",
-      ...authResult
+    response.status(isNewUser ? 201 : 200).json({
+      message: isNewUser ? "User created with Google sign-up" : "User logged in with Google",
+      accessToken: generateAccessToken(user, sessionId),
+      refreshToken,
+      isNewUser,
+      user: serializeUser(user)
     });
   }
 }
@@ -62,21 +67,6 @@ function serializeUser(user: UserDocument) {
     createdAt: user.createdAt,
     updatedAt: user.updatedAt
   };
-}
-
-async function createSession(request: Request, user: UserDocument) {
-  const refreshToken = generateRefreshToken(user);
-  const { expiresAt } = verifyRefreshToken(refreshToken);
-
-  await SessionModel.create({
-    userId: user._id,
-    refreshToken,
-    userAgent: request.header("user-agent"),
-    ipAddress: request.ip,
-    expiresAt
-  });
-
-  return refreshToken;
 }
 
 export async function register(
@@ -114,11 +104,12 @@ export async function register(
       authProvider: AUTH_PROVIDERS.Local,
       authProviderUserId: email
     });
-    const refreshToken = await createSession(request, user);
+    const { refreshToken, sessionId } = await createSession(request, user);
+    await revokeSessionsFromOtherIps(user._id, request.ip);
 
     request.log.info({ userId: user._id.toString() }, "Local user registered");
     response.status(201).json({
-      accessToken: generateAccessToken(user),
+      accessToken: generateAccessToken(user, sessionId),
       refreshToken,
       user: serializeUser(user)
     });
@@ -164,11 +155,12 @@ export async function login(
 
   user.lastLoginAt = new Date();
   await user.save();
-  const refreshToken = await createSession(request, user);
+  const { refreshToken, sessionId } = await createSession(request, user);
+  await revokeSessionsFromOtherIps(user._id, request.ip);
 
   request.log.info({ userId: user._id.toString() }, "Local user authenticated");
   response.json({
-    accessToken: generateAccessToken(user),
+    accessToken: generateAccessToken(user, sessionId),
     refreshToken,
     user: serializeUser(user)
   });
@@ -208,7 +200,7 @@ export async function refreshToken(
     }
 
     request.log.info({ userId: user._id.toString() }, "Access token refreshed");
-    response.json({ accessToken: generateAccessToken(user) });
+    response.json({ accessToken: generateAccessToken(user, session._id.toString()) });
   } catch (error) {
     // Preserve typed application errors; normalize token verification failures.
     if (error instanceof AppError) {

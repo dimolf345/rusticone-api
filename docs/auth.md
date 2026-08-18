@@ -31,8 +31,10 @@ The backend exposes `POST /auth/google` for the optional Google authentication f
    - default `role = "customer"`
    - profile data from Google
 7. If a user already exists, it updates the stored Google-linked profile data and refreshes `lastLoginAt`.
-8. The server returns:
-   - an application JWT access token
+8. The server creates a session (recording IP and user agent) and revokes the user's sessions from other IP addresses.
+9. The server returns:
+   - an application JWT access token (bound to the new session via a `sid` claim)
+   - a refresh token for the new session
    - the user payload
    - whether this was a new user or a login
 
@@ -52,3 +54,5 @@ The backend exposes `POST /auth/google` for the optional Google authentication f
 ### Notes
 
 This flow is intentionally optional. It does not replace user CRUD; it creates the authenticated user identity first, then the rest of the API can rely on the returned application token.
+
+Google sign-in participates in the same session model as local authentication: the returned access token is bound to a session and a login from a new IP address invalidates the user's sessions from other IPs. Multiple tabs on the same workstation share the stored token and are not affected. See [authentication.md](./authentication.md) for the full session and IP-scoping behavior.

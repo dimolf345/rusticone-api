@@ -78,7 +78,9 @@ classDiagram
 
 ### Session
 - Stores refresh tokens for authenticated users.
-- `userId` references the `User` collection.
+- `userId` references the `User` collection and is indexed.
+- `ipAddress` is indexed to support revoking a user's sessions from other IPs on login.
+- Each access token is bound to a session `_id` via its `sid` claim.
 - `expiresAt` is configured to expire automatically.
 
 ### Product

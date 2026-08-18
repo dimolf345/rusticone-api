@@ -13,6 +13,9 @@ import { userRouter } from "./routes/user.js";
 
 export const app = express();
 
+// Trust the first proxy hop so request.ip reflects the real client (X-Forwarded-For).
+app.set("trust proxy", 1);
+
 app.use(loggingMiddleware);
 app.use(helmet());
 app.use(cors());
