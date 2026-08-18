@@ -75,7 +75,7 @@ function serializeUser(user: UserDocument): ISerializedAuthUser {
         id: user._id.toString(),
         role: user.role,
         email: user.email,
-        name: user.name,
+        name: user.name ?? "",
         authProvider: user.authProvider,
         authProviderUserId: user.authProviderUserId,
         avatarUrl: user.avatarUrl,
