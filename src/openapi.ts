@@ -148,6 +148,70 @@ export const openApiDocument = {
         security: [{ bearerAuth: [] }],
         responses: { 200: { description: "Authenticated user profile" }, 401: { description: "Access token is missing, invalid, or its session was revoked" } }
       }
+    },
+    "/api/uploads/temp": {
+      post: {
+        summary: "Pre-upload product images",
+        description:
+          "Streams one or more image files to Cloudinary, caches the resulting secure URLs in Redis under a short-lived upload session (1 hour TTL), and returns the session id to reference when creating a product. Admin only.",
+        tags: ["uploads"],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                required: ["images"],
+                properties: {
+                  images: {
+                    type: "array",
+                    maxItems: 5,
+                    items: { type: "string", format: "binary" },
+                    description: "Up to 5 image files, 5 MB each"
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: "Images pre-uploaded successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/UploadTempResponse" }
+              }
+            }
+          },
+          400: { description: "No image files provided or a non-image file was sent" },
+          401: { description: "Access token is missing, invalid, or its session was revoked" },
+          403: { description: "The authenticated user is not an admin" },
+          503: { description: "Image upload storage (Redis) is unavailable" }
+        }
+      }
+    },
+    "/api/products": {
+      post: {
+        summary: "Create a product",
+        description:
+          "Creates a catering product. Optionally accepts an uploadSessionId returned by POST /api/uploads/temp to attach pre-uploaded images; the session is consumed and removed after a successful create. Admin only.",
+        tags: ["products"],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ProductInput" } }
+          }
+        },
+        responses: {
+          201: { description: "Product created successfully" },
+          400: { description: "Invalid payload or an invalid/expired uploadSessionId" },
+          401: { description: "Access token is missing, invalid, or its session was revoked" },
+          403: { description: "The authenticated user is not an admin" },
+          503: { description: "Image upload storage (Redis) is unavailable" }
+        }
+      }
     }
   },
   components: {
@@ -175,6 +239,50 @@ export const openApiDocument = {
           authProviderUserId: { type: "string" },
           avatarUrl: { type: "string", format: "uri" },
           emailVerified: { type: "boolean" }
+        }
+      },
+      UploadTempResponse: {
+        type: "object",
+        required: ["message", "uploadSessionId", "imageUrls"],
+        properties: {
+          message: { type: "string" },
+          uploadSessionId: {
+            type: "string",
+            description: "Reference passed to POST /api/products to attach the images"
+          },
+          imageUrls: {
+            type: "array",
+            items: { type: "string", format: "uri" },
+            description: "Cloudinary secure URLs for the uploaded images"
+          }
+        }
+      },
+      ProductInput: {
+        type: "object",
+        required: ["name", "basePrice", "categories"],
+        properties: {
+          name: { type: "string", minLength: 5 },
+          basePrice: { type: "number", minimum: 0 },
+          size: { type: "array", items: { type: "number" } },
+          categories: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: ["Fritti", "Dolci", "Bevande", "Pizza", "Rustici", "Cotti al forno"]
+            }
+          },
+          available: { type: "boolean" },
+          description: { type: "string" },
+          suggestedQuantity: { type: "number", minimum: 1 },
+          productImages: {
+            type: "array",
+            items: { type: "string", format: "uri" },
+            description: "Set automatically when uploadSessionId is provided"
+          },
+          uploadSessionId: {
+            type: "string",
+            description: "Optional session id from POST /api/uploads/temp"
+          }
         }
       },
       ErrorResponse: {

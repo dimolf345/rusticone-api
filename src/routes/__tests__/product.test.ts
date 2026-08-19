@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import type { Server } from "node:net";
 import { after, afterEach, before, describe, test } from "node:test";
 
@@ -7,17 +8,39 @@ import mongoose from "mongoose";
 import pino from "pino";
 
 import { connectDatabase } from "../../config/database.js";
+import { disconnectRedis, getRedisClient } from "../../config/redis.js";
 import { createLoggingMiddleware } from "../../logger/middleware.js";
 import { errorHandler } from "../../middleware/errorHandler.js";
 import { ProductModel } from "../../models/product.js";
-import { UserModel } from "../../models/user.js";
+import { SessionModel } from "../../models/session.js";
+import { UserModel, type UserDocument } from "../../models/user.js";
 import { generateAccessToken } from "../../utils/jwt.js";
 import { createProductsRouter } from "../product.js";
 
 const PRODUCT_TEST_PREFIX = "product-route-test-";
+const UPLOAD_KEY_PREFIX = "temp_images:";
+const createdRedisKeys: string[] = [];
 
 process.env.JWT_ACCESS_SECRET = "test-access-secret";
 process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
+
+async function createAuthHeader(user: UserDocument): Promise<string> {
+    const session = await SessionModel.create({
+        userId: user._id,
+        refreshToken: `${PRODUCT_TEST_PREFIX}refresh-${randomUUID()}`,
+        expiresAt: new Date(Date.now() + 60_000)
+    });
+    return `Bearer ${generateAccessToken(user, session._id.toString())}`;
+}
+
+async function seedUploadSession(imageUrls: string[]): Promise<string> {
+    const uploadSessionId = randomUUID();
+    const key = `${UPLOAD_KEY_PREFIX}${uploadSessionId}`;
+    const client = await getRedisClient();
+    await client.set(key, JSON.stringify(imageUrls), { EX: 3600 });
+    createdRedisKeys.push(key);
+    return uploadSessionId;
+}
 
 function createTestApp(): Express {
     const app = express();
@@ -54,6 +77,7 @@ describe("Product routes", () => {
         await new Promise<void>((resolve, reject) => {
             server.close((error) => (error ? reject(error) : resolve()));
         });
+        await disconnectRedis();
         await mongoose.disconnect();
     });
 
@@ -64,6 +88,14 @@ describe("Product routes", () => {
         await UserModel.deleteMany({
             email: { $regex: "^admin-product-route-" }
         });
+        await SessionModel.deleteMany({
+            refreshToken: { $regex: `^${PRODUCT_TEST_PREFIX}refresh-` }
+        });
+        if (createdRedisKeys.length > 0) {
+            const client = await getRedisClient();
+            await client.del(createdRedisKeys);
+            createdRedisKeys.length = 0;
+        }
     });
 
     test("POST /api/products - creates a product for an admin user", async () => {
@@ -82,7 +114,7 @@ describe("Product routes", () => {
             method: "POST",
             headers: {
                 "content-type": "application/json",
-                authorization: `Bearer ${generateAccessToken(adminUser)}`
+                authorization: await createAuthHeader(adminUser)
             },
             body: JSON.stringify({
                 name: `${PRODUCT_TEST_PREFIX}pizza`,
@@ -136,7 +168,7 @@ describe("Product routes", () => {
 
         const response = await fetch(`${baseUrl}?name=${encodeURIComponent(`${PRODUCT_TEST_PREFIX}list-item`)}`, {
             headers: {
-                authorization: `Bearer ${generateAccessToken(adminUser)}`
+                authorization: await createAuthHeader(adminUser)
             }
         });
 
@@ -176,7 +208,7 @@ describe("Product routes", () => {
 
         const response = await fetch(`${baseUrl}/${targetProduct._id}`, {
             headers: {
-                authorization: `Bearer ${generateAccessToken(adminUser)}`
+                authorization: await createAuthHeader(adminUser)
             }
         });
 
@@ -214,7 +246,7 @@ describe("Product routes", () => {
             method: "PATCH",
             headers: {
                 "content-type": "application/json",
-                authorization: `Bearer ${generateAccessToken(adminUser)}`
+                authorization: await createAuthHeader(adminUser)
             },
             body: JSON.stringify({
                 name: `${PRODUCT_TEST_PREFIX}updated-item`,
@@ -233,5 +265,120 @@ describe("Product routes", () => {
         assert.ok(dbProduct);
         assert.equal(dbProduct.name, `${PRODUCT_TEST_PREFIX}updated-item`);
         assert.equal(dbProduct.available, false);
+    });
+
+    test("POST /api/products - attaches pre-uploaded images from uploadSessionId", async () => {
+        const adminUser = await UserModel.create({
+            role: "admin",
+            name: `Admin Product ${Date.now()}`,
+            email: `admin-product-route-${Date.now()}@example.com`,
+            username: `admin-product-route-${Date.now()}`,
+            authProvider: "local",
+            authProviderUserId: `admin-product-route-${Date.now()}`,
+            password: "secure-password",
+            emailVerified: true
+        });
+
+        const imageUrls = [
+            "https://cdn.example.com/a.jpg",
+            "https://cdn.example.com/b.jpg"
+        ];
+        const uploadSessionId = await seedUploadSession(imageUrls);
+
+        const response = await fetch(baseUrl, {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+                authorization: await createAuthHeader(adminUser)
+            },
+            body: JSON.stringify({
+                name: `${PRODUCT_TEST_PREFIX}with-images`,
+                basePrice: 10,
+                size: [1],
+                categories: ["Pizza"],
+                available: true,
+                description: "Has pre-uploaded images",
+                suggestedQuantity: 1,
+                addons: [],
+                uploadSessionId
+            })
+        });
+
+        assert.equal(response.status, 201);
+        const created = (await response.json()) as { _id: string; productImages: string[] };
+        assert.deepEqual(created.productImages, imageUrls);
+
+        // The session must be consumed exactly once.
+        const client = await getRedisClient();
+        assert.equal(await client.get(`${UPLOAD_KEY_PREFIX}${uploadSessionId}`), null);
+    });
+
+    test("POST /api/products - rejects an invalid or expired uploadSessionId", async () => {
+        const adminUser = await UserModel.create({
+            role: "admin",
+            name: `Admin Product ${Date.now()}`,
+            email: `admin-product-route-${Date.now()}@example.com`,
+            username: `admin-product-route-${Date.now()}`,
+            authProvider: "local",
+            authProviderUserId: `admin-product-route-${Date.now()}`,
+            password: "secure-password",
+            emailVerified: true
+        });
+
+        const response = await fetch(baseUrl, {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+                authorization: await createAuthHeader(adminUser)
+            },
+            body: JSON.stringify({
+                name: `${PRODUCT_TEST_PREFIX}expired`,
+                basePrice: 10,
+                size: [1],
+                categories: ["Pizza"],
+                available: true,
+                description: "Expired upload session",
+                suggestedQuantity: 1,
+                addons: [],
+                uploadSessionId: randomUUID()
+            })
+        });
+
+        assert.equal(response.status, 400);
+    });
+
+    test("POST /api/products - creates a product with no images when uploadSessionId is omitted", async () => {
+        const adminUser = await UserModel.create({
+            role: "admin",
+            name: `Admin Product ${Date.now()}`,
+            email: `admin-product-route-${Date.now()}@example.com`,
+            username: `admin-product-route-${Date.now()}`,
+            authProvider: "local",
+            authProviderUserId: `admin-product-route-${Date.now()}`,
+            password: "secure-password",
+            emailVerified: true
+        });
+
+        const response = await fetch(baseUrl, {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+                authorization: await createAuthHeader(adminUser)
+            },
+            body: JSON.stringify({
+                name: `${PRODUCT_TEST_PREFIX}no-images`,
+                basePrice: 10,
+                size: [1],
+                categories: ["Pizza"],
+                available: true,
+                description: "No images provided",
+                suggestedQuantity: 1,
+                addons: []
+            })
+        });
+
+        assert.equal(response.status, 201);
+        const created = (await response.json()) as { productImages?: string[] };
+        assert.deepEqual(created.productImages ?? [], []);
     });
 });
