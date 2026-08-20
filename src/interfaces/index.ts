@@ -21,3 +21,11 @@ export type {
   IFindAllOptions,
   IPaginatedResult
 } from "./base.interface.js";
+export type {
+  ICloudinaryUploader,
+  IUploadRouterDependencies,
+  IUploadResult,
+  IUploadService,
+  IUploadSessionStore,
+  IUploadedFile
+} from "./upload/index.js";

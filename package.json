@@ -29,15 +29,18 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.8.0",
+    "multer": "^2.2.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
-    "pino-roll": "^4.0.0"
+    "pino-roll": "^4.0.0",
+    "redis": "^6.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.31.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.2.0",
     "@types/node": "^24.1.0",
     "ci": "^2.3.0",
     "eslint": "^10.8.0",
