@@ -25,7 +25,10 @@ const sessionSchema = new Schema<ISession>(
       unique: true
     },
     userAgent: String,
-    ipAddress: String,
+    ipAddress: {
+      type: String,
+      index: true
+    },
     createdAt: {
       type: Date,
       default: Date.now

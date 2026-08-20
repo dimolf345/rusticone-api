@@ -5,15 +5,15 @@ import assert from "node:assert/strict";
 import { after, afterEach, before, describe, test } from "node:test";
 
 
-import { app } from "../app.js";
-import { connectDatabase } from "../config/database.js";
-import { SessionModel, UserModel } from "../models/index.js";
-import { openApiDocument } from "../openapi.js";
-import { createLoggingMiddleware } from "../logger/middleware.js";
-import { errorHandler } from "../middleware/errorHandler.js";
-import { createAuthRouter } from "./auth.js";
+import { app } from "../../app.js";
+import { connectDatabase } from "../../config/database.js";
+import { SessionModel, UserModel } from "../../models/index.js";
+import { openApiDocument } from "../../openapi.js";
+import { createLoggingMiddleware } from "../../logger/middleware.js";
+import { errorHandler } from "../../middleware/errorHandler.js";
+import { createAuthRouter } from "../auth.js";
 
-import { verifyRefreshToken } from "../utils/jwt.js";
+import { verifyRefreshToken } from "../../utils/jwt.js";
 
 process.env.JWT_ACCESS_SECRET = "test-access-secret";
 process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
@@ -41,6 +41,7 @@ function createTestApp() {
   const app = express();
   const testLogger = pino({ level: "silent" });
 
+  app.set("trust proxy", 1);
   app.use(createLoggingMiddleware(testLogger));
   app.use(express.json());
   app.use(
@@ -70,7 +71,10 @@ describe("Google auth flow", () => {
   });
 
   afterEach(async () => {
-    await UserModel.deleteMany({ authProviderUserId: testGoogleProfile.authProviderUserId });
+    await Promise.all([
+      UserModel.deleteMany({ authProviderUserId: testGoogleProfile.authProviderUserId }),
+      SessionModel.deleteMany({})
+    ]);
   });
 
   test("creates a user on first Google sign-up and logs in on the second request", async () => {
@@ -156,6 +160,152 @@ describe("Google auth flow", () => {
         server.close((error) => (error ? reject(error) : resolve()));
       });
     }
+  });
+
+  test("revokes a Google session created from a different IP", async () => {
+    const app = createTestApp();
+    const server = app.listen(0);
+
+    try {
+      const address = server.address();
+
+      if (!address || typeof address === "string") {
+        throw new Error("Unable to determine test server address");
+      }
+
+      const baseUrl = `http://127.0.0.1:${address.port}`;
+
+      const firstResponse = await fetch(`${baseUrl}/api/auth/google`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": "5.5.5.5" },
+        body: JSON.stringify({ idToken: "valid-google-token" })
+      });
+      assert.equal(firstResponse.status, 201);
+      const first = (await firstResponse.json()) as { accessToken: string };
+
+      const secondResponse = await fetch(`${baseUrl}/api/auth/google`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": "6.6.6.6" },
+        body: JSON.stringify({ idToken: "valid-google-token" })
+      });
+      assert.equal(secondResponse.status, 200);
+      const second = (await secondResponse.json()) as { accessToken: string };
+
+      const revoked = await fetch(`${baseUrl}/api/auth/me`, {
+        headers: { authorization: `Bearer ${first.accessToken}` }
+      });
+      assert.equal(revoked.status, 401);
+
+      const active = await fetch(`${baseUrl}/api/auth/me`, {
+        headers: { authorization: `Bearer ${second.accessToken}` }
+      });
+      assert.equal(active.status, 200);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+});
+
+
+describe("session IP scoping", () => {
+  let baseUrl: string;
+  let server: ReturnType<typeof app.listen>;
+
+  before(async () => {
+    await connectDatabase();
+    server = app.listen(0);
+    const address = server.address();
+
+    if (!address || typeof address === "string") {
+      throw new Error("Unable to determine test server address");
+    }
+
+    baseUrl = `http://127.0.0.1:${address.port}`;
+  });
+
+  afterEach(async () => {
+    await Promise.all([UserModel.deleteMany({}), SessionModel.deleteMany({})]);
+  });
+
+  after(async () => {
+    await mongoose.disconnect();
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  });
+
+  async function registerFromIp(email: string, ip: string): Promise<IAuthResponse> {
+    const response = await fetch(`${baseUrl}/api/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": ip },
+      body: JSON.stringify({ email, password: "secure-password", name: "IP Test" })
+    });
+    assert.equal(response.status, 201);
+    return (await response.json()) as IAuthResponse;
+  }
+
+  test("a login from a new IP revokes sessions from other IPs", async () => {
+    const email = "ip-rotate@example.com";
+    const first = await registerFromIp(email, "1.1.1.1");
+
+    const firstProfile = await fetch(`${baseUrl}/api/auth/me`, {
+      headers: { authorization: `Bearer ${first.accessToken}` }
+    });
+    assert.equal(firstProfile.status, 200);
+
+    const loginResponse = await fetch(`${baseUrl}/api/auth/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "2.2.2.2" },
+      body: JSON.stringify({ email, password: "secure-password" })
+    });
+    assert.equal(loginResponse.status, 200);
+    const second = (await loginResponse.json()) as IAuthResponse;
+
+    // The original IP's access token is rejected immediately.
+    const revokedProfile = await fetch(`${baseUrl}/api/auth/me`, {
+      headers: { authorization: `Bearer ${first.accessToken}` }
+    });
+    assert.equal(revokedProfile.status, 401);
+
+    // The original refresh token can no longer be exchanged.
+    const revokedRefresh = await fetch(`${baseUrl}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ refreshToken: first.refreshToken })
+    });
+    assert.equal(revokedRefresh.status, 401);
+
+    // The new IP's session remains valid.
+    const activeProfile = await fetch(`${baseUrl}/api/auth/me`, {
+      headers: { authorization: `Bearer ${second.accessToken}` }
+    });
+    assert.equal(activeProfile.status, 200);
+
+    assert.equal(await SessionModel.countDocuments({}), 1);
+  });
+
+  test("keeps same-IP sessions valid so multiple tabs can share a login", async () => {
+    const email = "ip-same@example.com";
+    const first = await registerFromIp(email, "3.3.3.3");
+
+    const loginResponse = await fetch(`${baseUrl}/api/auth/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "3.3.3.3" },
+      body: JSON.stringify({ email, password: "secure-password" })
+    });
+    assert.equal(loginResponse.status, 200);
+    const second = (await loginResponse.json()) as IAuthResponse;
+
+    for (const token of [first.accessToken, second.accessToken]) {
+      const profile = await fetch(`${baseUrl}/api/auth/me`, {
+        headers: { authorization: `Bearer ${token}` }
+      });
+      assert.equal(profile.status, 200);
+    }
+
+    assert.equal(await SessionModel.countDocuments({}), 2);
   });
 });
 

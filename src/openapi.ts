@@ -45,7 +45,7 @@ export const openApiDocument = {
       post: {
         summary: "Authenticate a user with Google",
         description:
-          "Verifies a Google ID token, creates the user if needed, and returns an application access token.",
+          "Verifies a Google ID token, creates the user if needed, opens a session, and returns access and refresh tokens. Revokes the user's sessions from other IP addresses.",
         tags: ["auth"],
         requestBody: {
           required: true,
@@ -130,7 +130,7 @@ export const openApiDocument = {
         summary: "Generate a new access token",
         tags: ["authentication"],
         requestBody: refreshTokenRequest,
-        responses: { 200: { description: "Access token generated" }, 401: { description: "Invalid or expired refresh token" } }
+        responses: { 200: { description: "Access token generated" }, 401: { description: "Refresh token is invalid, expired, or its session was revoked" } }
       }
     },
     "/api/auth/logout": {
@@ -146,7 +146,7 @@ export const openApiDocument = {
         summary: "Get the authenticated user profile",
         tags: ["authentication"],
         security: [{ bearerAuth: [] }],
-        responses: { 200: { description: "Authenticated user profile" }, 401: { description: "Missing or invalid access token" } }
+        responses: { 200: { description: "Authenticated user profile" }, 401: { description: "Access token is missing, invalid, or its session was revoked" } }
       }
     }
   },
