@@ -64,9 +64,51 @@ classDiagram
         +string note
     }
 
+    class Quote {
+        +ObjectId _id
+        +ObjectId userId
+        +enum status
+        +number requestedPeople
+        +string dietaryNotes
+        +QuoteProduct[] products
+        +DeliveryAddress deliveryAddress
+        +Date deliveryDate
+        +number initialPrice
+        +number deliveryFee
+        +number discount
+        +number finalPrice
+        +number paidAmount
+        +enum paymentMethod
+        +string receiptNote
+        +Date validUntil
+        +QuoteComment[] comments
+        +Date deletedAt
+        +Date createdAt
+        +Date updatedAt
+    }
+
+    class QuoteProduct {
+        +ObjectId productId
+        +number quantity
+        +number priceAtQuote
+    }
+
+    class QuoteComment {
+        +ObjectId _id
+        +ObjectId senderId
+        +enum senderRole
+        +string message
+        +Date createdAt
+    }
+
     User "1" --> "many" Session : has
     Product "1" --> "many" Addon : embeds / resolves via referenceId
     Addon --> Product : referenced by product.addons[*].referenceId
+    User "1" --> "many" Quote : requests
+    Quote "1" --> "many" QuoteProduct : embeds
+    Quote "1" --> "many" QuoteComment : embeds
+    QuoteProduct --> Product : references productId
+    QuoteComment --> User : references senderId
 ```
 
 ## Collection details
@@ -94,3 +136,14 @@ classDiagram
 - Represents a selectable extra option for products.
 - `referenceId` is an ObjectId used to connect to related addon records when resolved.
 - Used as a child resource inside product addon payloads.
+
+### Quote
+- Represents a catering quote requested by a customer.
+- `userId` references the `User` collection and is indexed.
+- `status` is constrained to the quote status enum and drives the workflow (`pending`, `quoted`, `confirmed`, `rejected`, `completed`, `cancelled`); it is indexed.
+- `products` embeds `QuoteProduct` subdocuments; `priceAtQuote` is a server-side snapshot of the product `basePrice` at creation and is never accepted from clients.
+- `deliveryAddress` is an embedded object; `deliveryDate` is indexed.
+- Pricing (`initialPrice`, `finalPrice`) is always computed server-side: `sum(priceAtQuote * quantity) + deliveryFee`, then minus `discount`.
+- `comments` embeds `QuoteComment` subdocuments; `senderId`/`senderRole` are derived from the authenticated user.
+- `deletedAt` implements soft deletion; records are retained and excluded from all reads. Indexed.
+- Timestamps are enabled via `timestamps: true`.

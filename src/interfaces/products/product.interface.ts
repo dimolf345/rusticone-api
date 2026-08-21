@@ -40,3 +40,8 @@ export interface IStoredProduct extends IProduct {
     createdAt: Date
     updatedAt: Date
 }
+
+export interface IProductCreateRequest extends IProduct {
+    // Optional reference to images pre-uploaded via POST /api/uploads/temp.
+    uploadSessionId?: string;
+}

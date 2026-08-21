@@ -1,11 +1,12 @@
 import "dotenv/config";
 
-import { Server } from "http";
+import { Server } from "node:http";
 
 import mongoose from "mongoose";
 
 import { app } from "./app.js";
 import { connectDatabase } from "./config/database.js";
+import { disconnectRedis } from "./config/redis.js";
 import { logger } from "./logger/index.js";
 
 const port = Number(process.env.PORT ?? 3000);
@@ -31,6 +32,7 @@ async function startServer(): Promise<void> {
       try {
         await mongoose.disconnect();
         logger.info("Mongoose disconnected successfully");
+        await disconnectRedis();
         process.exit(process.exitCode || 0);
       } catch (disconnectError) {
         logger.error(
