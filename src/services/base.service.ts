@@ -5,22 +5,12 @@ import type {
   IFindAllOptions,
   IPaginatedResult
 } from "../interfaces/base.interface.js";
-
-const DEFAULT_PAGE = 1;
-const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 100;
-
-function normalizePositiveInteger(
-  value: number | undefined,
-  fallback: number,
-  maximum?: number
-): number {
-  if (value === undefined || !Number.isSafeInteger(value) || value < 1) {
-    return fallback;
-  }
-
-  return maximum === undefined ? value : Math.min(maximum, value);
-}
+import {
+  DEFAULT_LIMIT,
+  DEFAULT_PAGE,
+  MAX_LIMIT,
+  normalizePositiveInteger
+} from "../utils/pagination.js";
 
 export abstract class BaseService<
   TEntity,

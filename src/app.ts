@@ -11,6 +11,7 @@ import { addonsRouter } from "./routes/addon.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
 import { productsRouter } from "./routes/product.js";
+import { quotesRouter } from "./routes/quote.js";
 import { uploadsRouter } from "./routes/upload.js";
 import { userRouter } from "./routes/user.js";
 
@@ -39,6 +40,7 @@ app.use("/api/health", healthRouter);
 app.use("/api/users", userRouter);
 app.use("/api/addons", addonsRouter);
 app.use("/api/products", productsRouter);
+app.use("/api/quotes", quotesRouter);
 app.use("/api/uploads", uploadsRouter);
 
 // Centralized error handler must be registered after all routes.
