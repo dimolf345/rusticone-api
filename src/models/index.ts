@@ -11,4 +11,5 @@ export type { ISession, SessionDocument } from "./session.js";
 export { AUTH_PROVIDERS, USER_ROLES, UserModel } from "./user.js";
 export * from './addon.js';
 export * from './product.js';
+export { QuoteModel } from './quote.js';
 

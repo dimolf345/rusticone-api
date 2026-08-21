@@ -29,3 +29,21 @@ export type {
   IUploadSessionStore,
   IUploadedFile
 } from "./upload/index.js";
+export {
+  QUOTE_STATUS,
+  PAYMENT_METHOD,
+  QUOTE_STATUS_TRANSITIONS
+} from "./quotes/index.js";
+export type {
+  IDeliveryAddress,
+  IQuote,
+  IQuoteComment,
+  IQuoteCommentCreateRequest,
+  IQuoteCreateRequest,
+  IQuoteProduct,
+  IQuoteProductInput,
+  IQuoteUpdateRequest,
+  IStoredQuote,
+  PaymentMethod,
+  QuoteStatus
+} from "./quotes/index.js";
