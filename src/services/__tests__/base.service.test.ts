@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { BaseService } from "./base.service.js";
+import { BaseService } from "../base.service.js";
 import type { Model } from "mongoose";
 
 interface IItem {

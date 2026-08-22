@@ -16,6 +16,7 @@ import type {
 import { authenticateWithGoogle } from "../services/auth.service.js";
 import {
   createSession,
+  invalidateSessionCache,
   revokeSessionsFromOtherIps
 } from "../services/session.service.js";
 import {
@@ -196,6 +197,7 @@ export async function refreshToken(
 
     if (!user) {
       await session.deleteOne();
+      await invalidateSessionCache(session._id.toString());
       throw new UnauthorizedError("Refresh token user no longer exists");
     }
 
@@ -224,7 +226,12 @@ export async function logout(
   }
 
   request.log.info("Logging out session");
-  await SessionModel.deleteOne({ refreshToken: token });
+  const session = await SessionModel.findOneAndDelete({ refreshToken: token });
+
+  if (session) {
+    await invalidateSessionCache(session._id.toString());
+  }
+
   request.log.info("Session logged out");
   response.status(204).send();
 }

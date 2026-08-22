@@ -3,12 +3,12 @@ import { test } from "node:test";
 
 import type { Response } from "express";
 
-import { BaseController } from "./base.controller.js";
-import { NotFoundError } from "../errors/index.js";
+import { BaseController } from "../base.controller.js";
+import { NotFoundError } from "../../errors/index.js";
 import type {
   IBaseServiceInterface,
   IFindAllOptions
-} from "../interfaces/base.interface.js";
+} from "../../interfaces/base.interface.js";
 
 interface IItem {
   id: string;

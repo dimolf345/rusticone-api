@@ -50,6 +50,38 @@ The practical effect:
 `request.ip` reflects the real client because the app enables Express `trust proxy` (first
 hop), reading the client address from `X-Forwarded-For`.
 
+## Session validation caching
+
+Because the auth middleware validates the session on every protected request,
+`findValidSession` uses a cache-aside strategy backed by Redis to avoid a MongoDB read on
+each call:
+
+1. On a cache hit, the cached snapshot is returned without touching MongoDB. The snapshot
+   stores the `userId` and `expiresAt`, and a hit is only honored when the requested
+   `userId` matches and the session has not expired.
+2. On a cache miss, the session is loaded from MongoDB and, when valid, written to Redis
+   under the `session:{sessionId}` key.
+
+Cached entries use a TTL of `min(remaining session lifetime, SESSION_CACHE_TTL_SECONDS)`
+(default `300` seconds) as a safety net. To keep revocation immediate, the cache is
+actively invalidated on every path that removes a session:
+
+- **Logout** deletes the session and its cache entry.
+- **Refresh** removes both the session and its cache entry when the associated user no
+  longer exists.
+- **`revokeSessionsFromOtherIps`** invalidates the cache entry of each revoked session.
+
+Redis is treated purely as an optimization: if a Redis read or write fails, the failure is
+logged and the request transparently falls back to MongoDB, so authentication keeps working
+even when Redis is unavailable.
+
+### Configuration
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `SESSION_CACHE_TTL_SECONDS` | `300` | Maximum time a validated session stays cached in Redis. |
+| `REDIS_URL` | `redis://localhost:6379` | Connection string for the Redis instance backing the cache. |
+
 ## Endpoints
 
 All authentication endpoints use the `/api/auth` prefix. Request and response bodies use JSON unless otherwise noted.

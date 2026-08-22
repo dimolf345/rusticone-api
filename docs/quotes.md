@@ -122,8 +122,8 @@ id and requesting user id.
 
 - Service behavior (price snapshots, total calculation, status-transition rules,
   soft delete) is covered by
-  [`src/services/__tests__/quote.service.test.ts`](../src/services/__tests__/quote.service.test.ts).
+  [`src/services/quote.service.test.ts`](../src/services/quote.service.test.ts).
 - End-to-end route behavior against the test database (creation with server-side
   pricing, role-based list filtering, ownership checks, confirmed-edit blocking,
   soft delete, and adding comments) is covered by
-  [`src/routes/__tests__/quote.test.ts`](../src/routes/__tests__/quote.test.ts).
+  [`src/routes/quote.test.ts`](../src/routes/quote.test.ts).

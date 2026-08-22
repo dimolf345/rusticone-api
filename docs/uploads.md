@@ -131,11 +131,11 @@ Tests run against the test Mongo and Redis containers defined in
 npm test
 ```
 
-- `src/services/__tests__/upload.service.test.ts` — unit test with a fake
+- `src/services/upload.service.test.ts` — unit test with a fake
   Cloudinary uploader and an in-memory session store.
-- `src/routes/__tests__/upload.test.ts` — integration test hitting
+- `src/routes/upload.test.ts` — integration test hitting
   `POST /api/uploads/temp` with a fake uploader and real Redis (asserts the
   session key exists and the non-admin/no-file paths).
-- `src/routes/__tests__/product.test.ts` — covers product creation with a valid
+- `src/routes/product.test.ts` — covers product creation with a valid
   `uploadSessionId` (images attached, key deleted), an expired session (`400`),
   and no session (`201`).
