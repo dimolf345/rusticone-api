@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import type { Server } from "node:net";
 import { after, afterEach, before, describe, test } from "node:test";
 
@@ -10,7 +11,8 @@ import { connectDatabase } from "../../config/database.js";
 import { createLoggingMiddleware } from "../../logger/middleware.js";
 import { errorHandler } from "../../middleware/errorHandler.js";
 import { AddonModel } from "../../models/addon.js";
-import { UserModel } from "../../models/user.js";
+import { SessionModel } from "../../models/session.js";
+import { UserModel, type UserDocument } from "../../models/user.js";
 import { generateAccessToken } from "../../utils/jwt.js";
 import { createAddonsRouter } from "../addon.js";
 
@@ -18,6 +20,15 @@ const ADDON_TEST_PREFIX = "addon-route-test-";
 
 process.env.JWT_ACCESS_SECRET = "test-access-secret";
 process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
+
+async function createAuthHeader(user: UserDocument): Promise<string> {
+    const session = await SessionModel.create({
+        userId: user._id,
+        refreshToken: `${ADDON_TEST_PREFIX}refresh-${randomUUID()}`,
+        expiresAt: new Date(Date.now() + 60_000)
+    });
+    return `Bearer ${generateAccessToken(user, session._id.toString())}`;
+}
 
 function createTestApp(): Express {
     const app = express();
@@ -64,6 +75,9 @@ describe("Addon routes", () => {
         await UserModel.deleteMany({
             email: { $regex: "^admin-addon-route-" }
         });
+        await SessionModel.deleteMany({
+            refreshToken: { $regex: `^${ADDON_TEST_PREFIX}refresh-` }
+        });
     });
 
     test("POST /api/addons - creates an addon for an admin user", async () => {
@@ -82,7 +96,7 @@ describe("Addon routes", () => {
             method: "POST",
             headers: {
                 "content-type": "application/json",
-                authorization: `Bearer ${generateAccessToken(adminUser)}`
+                authorization: await createAuthHeader(adminUser)
             },
             body: JSON.stringify({
                 name: `${ADDON_TEST_PREFIX}burrata`,
@@ -122,7 +136,7 @@ describe("Addon routes", () => {
 
         const response = await fetch(`${baseUrl}?name=${encodeURIComponent(`${ADDON_TEST_PREFIX}list-item`)}`, {
             headers: {
-                authorization: `Bearer ${generateAccessToken(adminUser)}`
+                authorization: await createAuthHeader(adminUser)
             }
         });
 
@@ -156,7 +170,7 @@ describe("Addon routes", () => {
 
         const response = await fetch(`${baseUrl}/${targetAddon._id}`, {
             headers: {
-                authorization: `Bearer ${generateAccessToken(adminUser)}`
+                authorization: await createAuthHeader(adminUser)
             }
         });
 
@@ -188,7 +202,7 @@ describe("Addon routes", () => {
             method: "PATCH",
             headers: {
                 "content-type": "application/json",
-                authorization: `Bearer ${generateAccessToken(adminUser)}`
+                authorization: await createAuthHeader(adminUser)
             },
             body: JSON.stringify({
                 name: `${ADDON_TEST_PREFIX}updated-item`,
@@ -230,7 +244,7 @@ describe("Addon routes", () => {
         const deleteResponse = await fetch(`${baseUrl}/${targetAddon._id}`, {
             method: "DELETE",
             headers: {
-                authorization: `Bearer ${generateAccessToken(adminUser)}`
+                authorization: await createAuthHeader(adminUser)
             }
         });
 

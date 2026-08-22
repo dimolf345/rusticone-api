@@ -43,5 +43,5 @@ the relevant context.
 ## Testing
 
 Controller-level authorization is covered by unit tests in
-`src/controllers/__tests__/user.controller.test.ts`, which exercise the update
+`src/controllers/user.controller.test.ts`, which exercise the update
 handler with a mocked service for each admin/customer scenario above.

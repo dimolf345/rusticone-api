@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import type { Server } from "node:net";
 import { after, afterEach, before, describe, test } from "node:test";
 
@@ -6,12 +7,13 @@ import express, { type Express } from "express";
 import mongoose from "mongoose";
 import pino from "pino";
 
-import { connectDatabase } from "../config/database.js";
-import { createLoggingMiddleware } from "../logger/middleware.js";
-import { errorHandler } from "../middleware/errorHandler.js";
-import { UserModel } from "../models/user.js";
-import { generateAccessToken } from "../utils/jwt.js";
-import { createUserRouter } from "./user.js";
+import { connectDatabase } from "../../config/database.js";
+import { createLoggingMiddleware } from "../../logger/middleware.js";
+import { errorHandler } from "../../middleware/errorHandler.js";
+import { SessionModel } from "../../models/session.js";
+import { UserModel } from "../../models/user.js";
+import { generateAccessToken } from "../../utils/jwt.js";
+import { createUserRouter } from "../user.js";
 
 const testUserIdPrefix = "user-route-test-";
 
@@ -29,7 +31,7 @@ function createTestApp(): Express {
   return app;
 }
 
-describe.skip("User routes", () => {
+describe("User routes", () => {
   let server: Server;
   let baseUrl: string;
   let adminAuthHeader: string;
@@ -50,7 +52,7 @@ describe.skip("User routes", () => {
 
     baseUrl = `http://127.0.0.1:${address.port}/api/users`;
 
-    // Create a shared admin user and token
+    // Create a shared admin user and a session-bound access token
     const adminUser = await UserModel.create({
       role: "admin",
       email: "admin-route@example.com",
@@ -60,10 +62,19 @@ describe.skip("User routes", () => {
       password: "secure-password",
       emailVerified: true
     });
-    adminAuthHeader = `Bearer ${generateAccessToken(adminUser)}`;
+    const session = await SessionModel.create({
+      userId: adminUser._id,
+      refreshToken: `${testUserIdPrefix}refresh-${randomUUID()}`,
+      expiresAt: new Date(Date.now() + 60_000)
+    });
+    adminAuthHeader = `Bearer ${generateAccessToken(adminUser, session._id.toString())}`;
   });
 
   after(async () => {
+    await UserModel.deleteMany({ email: "admin-route@example.com" });
+    await SessionModel.deleteMany({
+      refreshToken: { $regex: `^${testUserIdPrefix}refresh-` }
+    });
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));
     });
