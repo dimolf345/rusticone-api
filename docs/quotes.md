@@ -41,6 +41,9 @@ If any submitted `productId` does not exist, the request is rejected with
 - Admins may set `userId` to create a quote on behalf of a customer.
 - `status` defaults to `pending` and `validUntil` defaults to 14 days after
   creation.
+- After the quote is saved, the customer and admin are notified by email
+  (best-effort, non-blocking). See
+  [`docs/email-notifications.md`](./email-notifications.md).
 
 ## List — `GET /api/quotes`
 

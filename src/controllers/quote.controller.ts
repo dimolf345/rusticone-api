@@ -1,6 +1,9 @@
+import type { Logger } from "pino";
+
 import type { Request, Response } from "express";
 import mongoose from "mongoose";
 
+import { isMailerConfigured } from "../config/mailer.js";
 import { BadRequestError, ForbiddenError, NotFoundError } from "../errors/index.js";
 import type { IAuthenticatedRequest } from "../interfaces/auth/auth-request.interface.js";
 import type { IAccessTokenPayload } from "../interfaces/auth/jwt.interface.js";
@@ -9,6 +12,7 @@ import type {
     IBaseControllerInterface,
     IFindAllOptions
 } from "../interfaces/base.interface.js";
+import type { IEmailService } from "../interfaces/email/index.js";
 import {
     IQuoteCommentCreateRequest,
     IQuoteCommentUpdateRequest,
@@ -18,7 +22,9 @@ import {
     QUOTE_STATUS
 } from "../interfaces/quotes/quote.interface.js";
 import { USER_ROLES, UserRole } from "../models/user.js";
+import { EmailService } from "../services/email.service.js";
 import { QuoteService } from "../services/quote.service.js";
+import { generateQuotePdf } from "../utils/quote-pdf.js";
 import {
     DEFAULT_LIMIT,
     DEFAULT_PAGE,
@@ -38,7 +44,10 @@ const CUSTOMER_EDITABLE_FIELDS = [
 export class QuotesController
     implements IBaseControllerInterface<IStoredQuote, IQuoteCreateRequest, IQuoteUpdateRequest>
 {
-    constructor(private readonly service: QuoteService = new QuoteService()) {}
+    constructor(
+        private readonly service: QuoteService = new QuoteService(),
+        private readonly emailService: IEmailService = new EmailService()
+    ) {}
 
     public createOne = async (
         request: Request<unknown, unknown, IQuoteCreateRequest>,
@@ -57,7 +66,38 @@ export class QuotesController
         const quote = await this.service.createOne(payload);
         request.log.info({ quoteId: quote._id }, "Quote created");
         response.status(201).json(quote);
+
+        // Fire-and-forget: email delivery must never affect the 201 response.
+        void this.notifyQuoteCreated(request.log, String(quote._id));
     };
+
+    /**
+     * Sends the customer/admin quote notification emails without blocking or
+     * failing the request. Any error (including SMTP outages) is swallowed and
+     * logged so a saved quote is never reported to the client as a failure.
+     */
+    private async notifyQuoteCreated(log: Logger, quoteId: string): Promise<void> {
+        if (!isMailerConfigured()) {
+            log.warn({ quoteId }, "SMTP not configured; skipping quote notification emails");
+            return;
+        }
+
+        try {
+            // Re-fetch with `userId` populated so recipient details are available.
+            const populated = await this.service.findOne(quoteId);
+
+            if (!populated) {
+                log.warn({ quoteId }, "Quote vanished before notification could be sent");
+                return;
+            }
+
+            const pdfBuffer = generateQuotePdf(populated);
+            await this.emailService.sendQuoteNotifications({ quote: populated, pdfBuffer });
+            log.info({ quoteId }, "Quote notification emails dispatched");
+        } catch (error) {
+            log.error({ err: error, quoteId }, "Quote notification email dispatch failed");
+        }
+    }
 
     public findAll = async (request: Request, response: Response): Promise<void> => {
         const authUser = this.requireUser(request);
