@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 
 import { app } from "./app.js";
 import { connectDatabase } from "./config/database.js";
+import { verifyMailer } from "./config/mailer.js";
 import { disconnectRedis } from "./config/redis.js";
 import { logger } from "./logger/index.js";
 
@@ -14,6 +15,9 @@ const host = process.env.HOST ?? "0.0.0.0";
 
 async function startServer(): Promise<void> {
   await connectDatabase();
+
+  // Verify SMTP health at boot; a mail outage must not block server startup.
+  await verifyMailer();
 
   const server: Server = app.listen(port, host, () => {
     logger.info({ host, port }, "Server listening");
