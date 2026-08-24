@@ -35,6 +35,6 @@ export interface IStoredUser extends IBaseUser {
   createdAt: Date;
   updatedAt: Date;
 }
-
+export type UserDto = Omit<IBaseUser, '_id'> & { id: string };
 export type CreateUserInput = Omit<IStoredUser, "createdAt" | "updatedAt">;
 export type UpdateUserInput = Partial<CreateUserInput>;

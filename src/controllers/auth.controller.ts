@@ -8,17 +8,6 @@ import {
 import type { UserDocument } from "../models/user.js";
 import { generateAccessToken, verifyRefreshToken } from "../utils/jwt.js";
 
-import type {
-  IAuthenticatedRequest,
-  IGoogleAuthRequestBody,
-  IGoogleAuthServiceDependencies
-} from "../interfaces/auth/index.js";
-import { authenticateWithGoogle } from "../services/auth.service.js";
-import {
-  createSession,
-  invalidateSessionCache,
-  revokeSessionsFromOtherIps
-} from "../services/session.service.js";
 import {
   AppError,
   BadRequestError,
@@ -26,6 +15,18 @@ import {
   NotFoundError,
   UnauthorizedError
 } from "../errors/index.js";
+import type {
+  IAuthenticatedRequest,
+  IGoogleAuthRequestBody,
+  IGoogleAuthServiceDependencies
+} from "../interfaces/auth/index.js";
+import { UserDto } from "../interfaces/user/user.interface.js";
+import { authenticateWithGoogle } from "../services/auth.service.js";
+import {
+  createSession,
+  invalidateSessionCache,
+  revokeSessionsFromOtherIps
+} from "../services/session.service.js";
 
 export function createGoogleAuthController(dependencies: IGoogleAuthServiceDependencies = {}) {
   return async (request: Request<unknown, unknown, IGoogleAuthRequestBody>, response: Response): Promise<void> => {
@@ -51,23 +52,9 @@ export function createGoogleAuthController(dependencies: IGoogleAuthServiceDepen
       accessToken: generateAccessToken(user, sessionId),
       refreshToken,
       isNewUser,
-      user: serializeUser(user)
+      user: user.toJSON()
     });
   }
-}
-
-
-function serializeUser(user: UserDocument) {
-  return {
-    id: user._id.toString(),
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    authProvider: user.authProvider,
-    lastLoginAt: user.lastLoginAt,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt
-  };
 }
 
 export async function register(
@@ -112,7 +99,7 @@ export async function register(
     response.status(201).json({
       accessToken: generateAccessToken(user, sessionId),
       refreshToken,
-      user: serializeUser(user)
+      user: user.toJSON()
     });
   } catch (error) {
     // Translate the MongoDB duplicate-key error into a typed conflict error.
@@ -163,7 +150,7 @@ export async function login(
   response.json({
     accessToken: generateAccessToken(user, sessionId),
     refreshToken,
-    user: serializeUser(user)
+    user: user.toJSON()
   });
 }
 
