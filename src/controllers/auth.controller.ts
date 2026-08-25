@@ -5,7 +5,6 @@ import {
   SessionModel,
   UserModel
 } from "../models/index.js";
-import type { UserDocument } from "../models/user.js";
 import { generateAccessToken, verifyRefreshToken } from "../utils/jwt.js";
 
 import {
@@ -20,7 +19,6 @@ import type {
   IGoogleAuthRequestBody,
   IGoogleAuthServiceDependencies
 } from "../interfaces/auth/index.js";
-import { UserDto } from "../interfaces/user/user.interface.js";
 import { authenticateWithGoogle } from "../services/auth.service.js";
 import {
   createSession,
@@ -233,5 +231,5 @@ export async function me(request: Request, response: Response): Promise<void> {
   }
 
   request.log.info({ userId }, "Returning profile for user");
-  response.json({ user: serializeUser(user) });
+  response.json({ user: user.toJSON() });
 }
