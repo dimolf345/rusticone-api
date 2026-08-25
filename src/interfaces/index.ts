@@ -22,6 +22,16 @@ export type {
   IPaginatedResult
 } from "./base.interface.js";
 export type {
+  IEmailService,
+  IMailAttachment,
+  IMailMessage,
+  IMailTransporter,
+  IQuoteEmailCustomer,
+  IQuoteEmailData,
+  IQuoteNotificationInput,
+  IQuoteNotificationResult
+} from "./email/index.js";
+export type {
   ICloudinaryUploader,
   IUploadRouterDependencies,
   IUploadResult,

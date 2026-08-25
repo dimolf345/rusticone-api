@@ -217,7 +217,7 @@ export const openApiDocument = {
       post: {
         summary: "Create a quote",
         description:
-          "Creates a catering quote. Product prices are always snapshotted server-side from the Product collection; any client-supplied prices are ignored. Customers create quotes for themselves; admins may set userId to create on behalf of a customer.",
+          "Creates a catering quote. Product prices are always snapshotted server-side from the Product collection; any client-supplied prices are ignored. Customers create quotes for themselves; admins may set userId to create on behalf of a customer. After the quote is saved, the customer and admin are notified by email (with the quote summary PDF attached) asynchronously; email delivery is best-effort and never affects this response. See docs/email-notifications.md.",
         tags: ["quotes"],
         security: [{ bearerAuth: [] }],
         requestBody: {
