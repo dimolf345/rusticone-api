@@ -106,12 +106,12 @@ describe("Addon routes", () => {
         });
 
         assert.equal(response.status, 201);
-        const created = (await response.json()) as { _id: string; name: string; price: number };
-        assert.ok(created._id);
+        const created = (await response.json()) as { id: string; name: string; price: number };
+        assert.ok(created.id);
         assert.equal(created.name, `${ADDON_TEST_PREFIX}burrata`);
         assert.equal(created.price, 3.5);
 
-        const dbAddon = await AddonModel.findById(created._id).lean().exec();
+        const dbAddon = await AddonModel.findById(created.id).lean().exec();
         assert.ok(dbAddon);
         assert.equal(dbAddon.name, `${ADDON_TEST_PREFIX}burrata`);
     });
@@ -175,8 +175,8 @@ describe("Addon routes", () => {
         });
 
         assert.equal(response.status, 200);
-        const addon = (await response.json()) as { _id: string; name: string };
-        assert.equal(addon._id, String(targetAddon._id));
+        const addon = (await response.json()) as { id: string; name: string };
+        assert.equal(addon.id, String(targetAddon._id));
         assert.equal(addon.name, `${ADDON_TEST_PREFIX}single-item`);
     });
 

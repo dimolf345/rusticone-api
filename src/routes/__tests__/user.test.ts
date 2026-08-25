@@ -106,12 +106,12 @@ describe("User routes", () => {
     });
 
     assert.equal(response.status, 201);
-    const created = (await response.json()) as { _id: string; email: string };
+    const created = (await response.json()) as { id: string; email: string };
     assert.equal(created.email, "user-create@example.com");
-    assert.ok(created._id);
+    assert.ok(created.id);
 
     // Verify record in database
-    const dbUser = await UserModel.findById(created._id).lean().exec();
+    const dbUser = await UserModel.findById(created.id).lean().exec();
     assert.ok(dbUser);
     assert.equal(dbUser.email, "user-create@example.com");
   });
@@ -154,8 +154,8 @@ describe("User routes", () => {
     });
 
     assert.equal(response.status, 200);
-    const fetched = (await response.json()) as { _id: string; email: string };
-    assert.equal(fetched._id, targetUser._id.toString());
+    const fetched = (await response.json()) as { id: string; email: string };
+    assert.equal(fetched.id, targetUser._id.toString());
     assert.equal(fetched.email, "user-get@example.com");
   });
 
