@@ -1,4 +1,5 @@
 import mongoose, { Schema, type HydratedDocument } from "mongoose";
+import { renameMongoId } from "../utils/mongoose.js";
 
 export interface ISession {
   userId: mongoose.Types.ObjectId;
@@ -54,7 +55,8 @@ const sessionSchema = new Schema<ISession>(
     revokedAt: Date
   },
   {
-    versionKey: false
+    versionKey: false,
+    toJSON: { transform: renameMongoId }
   }
 );
 

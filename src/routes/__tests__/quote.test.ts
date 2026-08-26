@@ -187,11 +187,11 @@ describe("Quote routes", () => {
 
         assert.equal(response.status, 200);
         const list = (await response.json()) as {
-            data: Array<{ userId: { _id: string } }>;
+            data: Array<{ userId: { id: string } }>;
             pagination: { total: number };
         };
         assert.equal(list.pagination.total, 1);
-        assert.equal(list.data[0]?.userId._id, customerA._id.toString());
+        assert.equal(list.data[0]?.userId.id, customerA._id.toString());
     });
 
     test("GET /api/quotes - admins see all quotes and can filter by userId", async () => {

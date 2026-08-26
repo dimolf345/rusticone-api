@@ -135,12 +135,12 @@ describe("Product routes", () => {
         });
 
         assert.equal(response.status, 201);
-        const created = (await response.json()) as { _id: string; name: string; basePrice: number };
-        assert.ok(created._id);
+        const created = (await response.json()) as { id: string; name: string; basePrice: number };
+        assert.ok(created.id);
         assert.equal(created.name, `${PRODUCT_TEST_PREFIX}pizza`);
         assert.equal(created.basePrice, 14.5);
 
-        const dbProduct = await ProductModel.findById(created._id).lean().exec();
+        const dbProduct = await ProductModel.findById(created.id).lean().exec();
         assert.ok(dbProduct);
         assert.equal(dbProduct.name, `${PRODUCT_TEST_PREFIX}pizza`);
     });
@@ -216,8 +216,8 @@ describe("Product routes", () => {
         });
 
         assert.equal(response.status, 200);
-        const product = (await response.json()) as { _id: string; name: string };
-        assert.equal(product._id, String(targetProduct._id));
+        const product = (await response.json()) as { id: string; name: string };
+        assert.equal(product.id, String(targetProduct._id));
         assert.equal(product.name, `${PRODUCT_TEST_PREFIX}single-item`);
     });
 

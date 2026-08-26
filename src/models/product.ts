@@ -2,6 +2,7 @@ import mongoose, { type Model, Schema } from "mongoose";
 import { IStoredProduct, PRODUCT_CATEGORIES } from "../interfaces/products/product.interface.js";
 import { IProductAddon } from "../interfaces/products/addon.interface.js";
 import { AddonModel } from "./addon.js";
+import { renameMongoId } from "../utils/mongoose.js";
 
 const productSchema = new Schema<IStoredProduct>({
     name: {
@@ -39,7 +40,11 @@ const productSchema = new Schema<IStoredProduct>({
         min: [1, 'Suggested quantity per person con\'t be negative']
     },
     addons: [Schema.Types.Mixed],
-}, { timestamps: true, versionKey: false });
+}, {
+    timestamps: true,
+    versionKey: false,
+    toJSON: { transform: renameMongoId }
+});
 
 productSchema.post(['find', 'findOne'], async function (docs) {
     if (!docs) return;

@@ -1,5 +1,6 @@
 import mongoose, { type Model, Schema } from "mongoose";
 import { IProductAddon } from "../interfaces/products/addon.interface.js";
+import { renameMongoId } from "../utils/mongoose.js";
 
 const addonSchema = new Schema<IProductAddon>({
     referenceId: {
@@ -20,7 +21,7 @@ const addonSchema = new Schema<IProductAddon>({
         type: String,
         required: false
     }
-}, { versionKey: false });
+}, { versionKey: false, toJSON: { transform: renameMongoId } });
 
 type AddonModelType = Model<IProductAddon>;
 

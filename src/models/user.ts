@@ -1,6 +1,7 @@
 import mongoose, { Schema, type HydratedDocument, type Model } from "mongoose";
 import type { IAdminUser, ICustomerUser, IStoredUser } from "../interfaces/user/index.js";
 import bcrypt from "bcryptjs";
+import { renameMongoId } from "../utils/mongoose.js";
 
 export const USER_ROLES = {
   Admin: "admin",
@@ -135,7 +136,10 @@ const userSchema = new Schema<IStoredUser, UserModelType, IUserMethods>(
   },
   {
     timestamps: true,
-    versionKey: false
+    versionKey: false,
+    toJSON: {
+      transform: renameMongoId
+    }
   }
 );
 

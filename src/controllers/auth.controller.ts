@@ -1,10 +1,17 @@
-import type { Request, Response } from "express";
+import { request, response, type Request, type Response } from "express";
 
-import { AUTH_PROVIDERS, UserModel } from "../models/index.js";
-import { BASIC_EMAIL_PATTERN } from "../models/user.js";
-import type { UserDocument } from "../models/user.js";
+import {
+  AUTH_PROVIDERS,
+  UserModel
+} from "../models/index.js";
 import { generateAccessToken, verifyRefreshToken } from "../utils/jwt.js";
 
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+  UnauthorizedError
+} from "../errors/index.js";
 import type {
   IAuthenticatedRequest,
   IGoogleAuthRequestBody,
@@ -16,18 +23,9 @@ import {
   revokeSessionByRefreshToken,
   rotateRefreshToken
 } from "../services/session.service.js";
-import {
-  BadRequestError,
-  ConflictError,
-  NotFoundError,
-  UnauthorizedError
-} from "../errors/index.js";
-import {
-  getClearRefreshCookieOptions,
-  getRefreshCookieOptions,
-  REFRESH_COOKIE_NAME
-} from "../config/auth.js";
 import { parseRefreshCookie } from "../utils/cookies.js";
+import { REFRESH_COOKIE_NAME, getRefreshCookieOptions, getClearRefreshCookieOptions } from "../config/auth.js";
+import { BASIC_EMAIL_PATTERN } from "../models/user.js";
 
 function setRefreshCookie(response: Response, refreshToken: string, expiresAt?: Date): void {
   const synchronizedExpiry = expiresAt ?? verifyRefreshToken(refreshToken).expiresAt;
@@ -51,10 +49,6 @@ export function createGoogleAuthController(dependencies: IGoogleAuthServiceDepen
   return async (request: Request<unknown, unknown, IGoogleAuthRequestBody>, response: Response): Promise<void> => {
     const idToken = request.body.idToken?.trim() ?? "";
 
-    if (!idToken) {
-      throw new BadRequestError("idToken is required");
-    }
-
     request.log.info("Google auth request received");
 
     const { user, isNewUser } = await authenticateWithGoogle(idToken, dependencies);
@@ -70,23 +64,9 @@ export function createGoogleAuthController(dependencies: IGoogleAuthServiceDepen
       message: isNewUser ? "User created with Google sign-up" : "User logged in with Google",
       accessToken: generateAccessToken(user, sessionId),
       isNewUser,
-      user: serializeUser(user)
+      user: user.toJSON()
     });
   }
-}
-
-
-function serializeUser(user: UserDocument) {
-  return {
-    id: user._id.toString(),
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    authProvider: user.authProvider,
-    lastLoginAt: user.lastLoginAt,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt
-  };
 }
 
 export async function register(
@@ -134,7 +114,8 @@ export async function register(
     request.log.info({ userId: user._id.toString() }, "Local user registered");
     response.status(201).json({
       accessToken: generateAccessToken(user, sessionId),
-      user: serializeUser(user)
+      refreshToken,
+      user: user.toJSON()
     });
   } catch (error) {
     // Translate the MongoDB duplicate-key error into a typed conflict error.
@@ -184,7 +165,8 @@ export async function login(
   request.log.info({ userId: user._id.toString() }, "Local user authenticated");
   response.json({
     accessToken: generateAccessToken(user, sessionId),
-    user: serializeUser(user)
+    refreshToken,
+    user: user.toJSON()
   });
 }
 
@@ -245,5 +227,5 @@ export async function me(request: Request, response: Response): Promise<void> {
   }
 
   request.log.info({ userId }, "Returning profile for user");
-  response.json({ user: serializeUser(user) });
+  response.json({ user: user.toJSON() });
 }
