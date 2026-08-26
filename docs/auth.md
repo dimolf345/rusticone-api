@@ -1,58 +1,37 @@
-# Auth
+# Google Authentication
 
-## Google sign-up / login flow
+Google sign-in uses the same cookie-based session model documented in [authentication.md](./authentication.md).
 
-The backend exposes `POST /auth/google` for the optional Google authentication flow.
+## Flow
 
-### How it works
+1. The browser obtains a Google ID token.
+2. It sends `{ "idToken": "<google-id-token>" }` to `POST /api/auth/google`.
+3. The API verifies the token with `GOOGLE_CLIENT_ID` and reads the Google subject, email, name, avatar URL, and email-verification flag.
+4. The API finds the user by Google provider ID or email. It creates a customer for a new identity or updates the linked profile and `lastLoginAt` for an existing identity.
+5. The API creates an independent refresh-token family. IP address and user agent are recorded only as observational metadata; Google login does not revoke sessions by IP.
+6. The response returns `message`, `accessToken`, `isNewUser`, and `user`. It never returns `refreshToken`; that credential is set as the `HttpOnly` `refreshToken` cookie.
 
-1. The client obtains a Google ID token after the user signs in with Google.
-2. The client sends that token to `POST /auth/google` as JSON:
-
-```json
-{
-  "idToken": "<google-id-token>"
-}
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant API
+    participant Google
+    participant MongoDB
+    Browser->>API: POST /api/auth/google {idToken}
+    API->>Google: verify ID token for GOOGLE_CLIENT_ID
+    Google-->>API: verified profile
+    API->>MongoDB: create/update user and create hashed session family
+    API-->>Browser: 200/201 accessToken + user metadata + Set-Cookie
 ```
 
-3. The server verifies the token with Google using `GOOGLE_CLIENT_ID`.
-4. The server extracts the Google profile data:
-   - Google user id
-   - email
-   - name
-   - avatar URL
-   - email verified flag
-5. The server looks for an existing user by either:
-   - Google provider id, or
-   - email
-6. If no user exists, it creates one with:
-   - `authProvider = "google"`
-   - `authProviderUserId = <google user id>`
-   - default `role = "customer"`
-   - profile data from Google
-7. If a user already exists, it updates the stored Google-linked profile data and refreshes `lastLoginAt`.
-8. The server creates a session (recording IP and user agent) and revokes the user's sessions from other IP addresses.
-9. The server returns:
-   - an application JWT access token (bound to the new session via a `sid` claim)
-   - a refresh token for the new session
-   - the user payload
-   - whether this was a new user or a login
+## Responses
 
-### Response behavior
+- `201 Created`: a new Google-backed user was created.
+- `200 OK`: the existing user logged in.
+- `400 Bad Request`: `idToken` is missing, structurally invalid, expired, has an invalid signature/issuer/audience, or lacks required profile fields.
+- `409 Conflict`: the email and Google subject resolve to conflicting or ambiguous existing identities.
+- `500 Internal Server Error`: operational infrastructure failed, including missing `GOOGLE_CLIENT_ID`, MongoDB lookup/persistence, or session creation.
 
-- `201 Created` means the user was created during this request.
-- `200 OK` means the user already existed and logged in.
-- `400 Bad Request` means the token was missing or invalid.
-- `500 Internal Server Error` means the server could not verify Google sign-in, usually because `GOOGLE_CLIENT_ID` is missing.
+The Google library exposes token-validation and certificate/network failures through overlapping error types. The verifier therefore maps only its identifiable signed-token validation failures to `400`. Module loading, configuration, certificate retrieval, network/upstream, and unknown verifier failures remain `500`; it does not broadly classify errors by words such as `invalid`.
 
-### Environment variables
-
-- `GOOGLE_CLIENT_ID` is required for token verification.
-- `JWT_SECRET` is used to sign the application access token.
-- `JWT_EXPIRES_IN` controls the JWT lifetime and defaults to `7d`.
-
-### Notes
-
-This flow is intentionally optional. It does not replace user CRUD; it creates the authenticated user identity first, then the rest of the API can rely on the returned application token.
-
-Google sign-in participates in the same session model as local authentication: the returned access token is bound to a session and a login from a new IP address invalidates the user's sessions from other IPs. Multiple tabs on the same workstation share the stored token and are not affected. See [authentication.md](./authentication.md) for the full session and IP-scoping behavior.
+The access token follows `JWT_ACCESS_EXPIRES_IN` (default `15m`) and belongs in frontend memory. The refresh cookie and hash-only Mongo session follow `JWT_REFRESH_EXPIRES_IN` (default `7d`). Production cookie, CORS, exact `FRONTEND_ORIGINS`, HTTPS, refresh rotation, client startup, migration, and testing requirements are covered in the main authentication guide.

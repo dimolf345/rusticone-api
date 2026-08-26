@@ -13,6 +13,8 @@ export const AUTH_PROVIDERS = {
   Google: "google"
 } as const;
 
+export const BASIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 
 interface IUserMethods {
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -42,7 +44,7 @@ const userSchema = new Schema<IStoredUser, UserModelType, IUserMethods>(
       lowercase: true,
       unique: true,
       trim: true,
-      match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address.']
+      match: [BASIC_EMAIL_PATTERN, "Please fill a valid email address."]
     },
     name: {
       type: String,

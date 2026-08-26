@@ -3,7 +3,24 @@
   Exports `openApiDocument` as a const object.
 */
 
-const credentialsRequest = {
+const registerRequest = {
+  required: true,
+  content: {
+    "application/json": {
+      schema: {
+        type: "object",
+        required: ["email", "password", "name"],
+        properties: {
+          email: { type: "string", format: "email" },
+          password: { type: "string", minLength: 8 },
+          name: { type: "string", minLength: 1, pattern: "\\S" }
+        }
+      }
+    }
+  }
+} as const;
+
+const loginRequest = {
   required: true,
   content: {
     "application/json": {
@@ -12,22 +29,8 @@ const credentialsRequest = {
         required: ["email", "password"],
         properties: {
           email: { type: "string", format: "email" },
-          password: { type: "string", minLength: 8 },
-          name: { type: "string" }
+          password: { type: "string", minLength: 1 }
         }
-      }
-    }
-  }
-} as const;
-
-const refreshTokenRequest = {
-  required: true,
-  content: {
-    "application/json": {
-      schema: {
-        type: "object",
-        required: ["refreshToken"],
-        properties: { refreshToken: { type: "string" } }
       }
     }
   }
@@ -45,7 +48,7 @@ export const openApiDocument = {
       post: {
         summary: "Authenticate a user with Google",
         description:
-          "Verifies a Google ID token, creates the user if needed, opens a session, and returns access and refresh tokens. Revokes the user's sessions from other IP addresses.",
+          "Verifies a Google ID token, creates the user if needed, opens an independent session, returns an access token, and sets the refresh token as an HttpOnly cookie.",
         tags: ["auth"],
         requestBody: {
           required: true,
@@ -65,10 +68,19 @@ export const openApiDocument = {
           }
         },
         responses: {
-          200: { description: "Existing user authenticated successfully" },
-          201: { description: "New user created and authenticated successfully" },
-          400: { description: "The request body is invalid or the Google token is invalid" },
-          500: { description: "Unexpected server error" }
+          200: {
+            description: "Existing user authenticated successfully",
+            headers: { "Set-Cookie": { $ref: "#/components/headers/RefreshCookie" } },
+            content: { "application/json": { schema: { $ref: "#/components/schemas/GoogleAuthResponse" } } }
+          },
+          201: {
+            description: "New user created and authenticated successfully",
+            headers: { "Set-Cookie": { $ref: "#/components/headers/RefreshCookie" } },
+            content: { "application/json": { schema: { $ref: "#/components/schemas/GoogleAuthResponse" } } }
+          },
+          400: { $ref: "#/components/responses/BadRequest" },
+          409: { $ref: "#/components/responses/Conflict" },
+          500: { $ref: "#/components/responses/InternalError" }
         }
       }
     },
@@ -113,32 +125,86 @@ export const openApiDocument = {
       post: {
         summary: "Register a local user",
         tags: ["authentication"],
-        requestBody: credentialsRequest,
-        responses: { 201: { description: "User registered and authenticated" }, 400: { description: "Invalid credentials" }, 409: { description: "Email already registered" } }
+        requestBody: registerRequest,
+        responses: {
+          201: {
+            description: "User registered and authenticated",
+            headers: { "Set-Cookie": { $ref: "#/components/headers/RefreshCookie" } },
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AuthResponse" } } }
+          },
+          400: { $ref: "#/components/responses/BadRequest" },
+          409: { $ref: "#/components/responses/Conflict" },
+          500: { $ref: "#/components/responses/InternalError" }
+        }
       }
     },
     "/api/auth/login": {
       post: {
         summary: "Log in with local credentials",
         tags: ["authentication"],
-        requestBody: credentialsRequest,
-        responses: { 200: { description: "User authenticated" }, 401: { description: "Invalid credentials" } }
+        requestBody: loginRequest,
+        responses: {
+          200: {
+            description: "User authenticated",
+            headers: { "Set-Cookie": { $ref: "#/components/headers/RefreshCookie" } },
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AuthResponse" } } }
+          },
+          400: { $ref: "#/components/responses/BadRequest" },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          500: { $ref: "#/components/responses/InternalError" }
+        }
       }
     },
     "/api/auth/refresh": {
       post: {
         summary: "Generate a new access token",
+        description:
+          "Rotates the refresh token from the HttpOnly cookie. In production the browser must use credentialed CORS from an exact FRONTEND_ORIGINS entry over HTTPS; SameSite=None cookies and the strict Origin check provide the cross-site CSRF assumptions.",
         tags: ["authentication"],
-        requestBody: refreshTokenRequest,
-        responses: { 200: { description: "Access token generated" }, 401: { description: "Refresh token is invalid, expired, or its session was revoked" } }
+        security: [{ refreshCookie: [] }],
+        responses: {
+          200: {
+            description: "Access token generated and refresh cookie replaced",
+            headers: { "Set-Cookie": { $ref: "#/components/headers/RefreshCookie" } },
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["accessToken"],
+                  properties: { accessToken: { type: "string" } }
+                }
+              }
+            }
+          },
+          401: {
+            description: "Refresh credential is missing, malformed, expired, unknown, reused, or belongs to a revoked session family; the cookie is cleared",
+            headers: { "Set-Cookie": { $ref: "#/components/headers/ClearedRefreshCookie" } },
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+          },
+          403: { $ref: "#/components/responses/Forbidden" },
+          500: { $ref: "#/components/responses/InternalError" }
+        }
       }
     },
     "/api/auth/logout": {
       post: {
         summary: "Log out a session",
+        description:
+          "Idempotently revokes the session identified by the refresh cookie and clears that cookie. In production an exact trusted Origin is required.",
         tags: ["authentication"],
-        requestBody: refreshTokenRequest,
-        responses: { 204: { description: "Session removed" } }
+        security: [{ refreshCookie: [] }, {}],
+        responses: {
+          204: {
+            description: "Session revoked when identifiable; cookie cleared even when absent or malformed",
+            headers: { "Set-Cookie": { $ref: "#/components/headers/ClearedRefreshCookie" } }
+          },
+          403: { $ref: "#/components/responses/Forbidden" },
+          500: {
+            description: "Revocation infrastructure failed; the browser cookie is still cleared",
+            headers: { "Set-Cookie": { $ref: "#/components/headers/ClearedRefreshCookie" } },
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+          }
+        }
       }
     },
     "/api/auth/me": {
@@ -146,7 +212,18 @@ export const openApiDocument = {
         summary: "Get the authenticated user profile",
         tags: ["authentication"],
         security: [{ bearerAuth: [] }],
-        responses: { 200: { description: "Authenticated user profile" }, 401: { description: "Access token is missing, invalid, or its session was revoked" } }
+        responses: {
+          200: {
+            description: "Authenticated user profile",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UserResponse" } } }
+          },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          404: {
+            description: "Authenticated user no longer exists",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+          },
+          500: { $ref: "#/components/responses/InternalError" }
+        }
       }
     },
     "/api/uploads/temp": {
@@ -356,7 +433,78 @@ export const openApiDocument = {
     }
   },
   components: {
+    headers: {
+      RefreshCookie: {
+        description:
+          "Rotating refreshToken cookie. HttpOnly; Path=/api/auth; Max-Age follows JWT_REFRESH_EXPIRES_IN; Secure and SameSite=None in production, SameSite=Lax without Secure in development.",
+        schema: { type: "string" }
+      },
+      ClearedRefreshCookie: {
+        description:
+          "Clears refreshToken using the same Path, Secure, and SameSite attributes as the issued cookie.",
+        schema: { type: "string" }
+      }
+    },
+    responses: {
+      BadRequest: {
+        description: "Request validation failed",
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+      },
+      Unauthorized: {
+        description: "Authentication credential is missing, invalid, expired, or revoked",
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+      },
+      Forbidden: {
+        description: "The authenticated caller or request Origin is not authorized",
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+      },
+      Conflict: {
+        description: "The requested identity already exists",
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+      },
+      InternalError: {
+        description: "Authentication infrastructure or another internal dependency failed",
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+      }
+    },
     schemas: {
+      User: {
+        type: "object",
+        required: ["id", "email", "role", "authProvider", "createdAt", "updatedAt"],
+        properties: {
+          id: { type: "string" },
+          email: { type: "string", format: "email" },
+          name: { type: "string" },
+          role: { type: "string", enum: ["admin", "customer"] },
+          authProvider: { type: "string", enum: ["local", "google"] },
+          lastLoginAt: { type: "string", format: "date-time" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" }
+        }
+      },
+      AuthResponse: {
+        type: "object",
+        required: ["accessToken", "user"],
+        properties: {
+          accessToken: { type: "string" },
+          user: { $ref: "#/components/schemas/User" }
+        }
+      },
+      GoogleAuthResponse: {
+        type: "object",
+        required: ["message", "accessToken", "isNewUser", "user"],
+        properties: {
+          message: { type: "string" },
+          accessToken: { type: "string" },
+          isNewUser: { type: "boolean" },
+          user: { $ref: "#/components/schemas/User" }
+        }
+      },
+      UserResponse: {
+        type: "object",
+        required: ["user"],
+        properties: { user: { $ref: "#/components/schemas/User" } }
+      },
       UserInput: {
         type: "object",
         required: ["email", "name", "authProvider", "authProviderUserId"],
@@ -516,7 +664,8 @@ export const openApiDocument = {
       }
     },
     securitySchemes: {
-      bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" }
+      bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
+      refreshCookie: { type: "apiKey", in: "cookie", name: "refreshToken" }
     }
   }
 } as const;

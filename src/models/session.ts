@@ -2,11 +2,14 @@ import mongoose, { Schema, type HydratedDocument } from "mongoose";
 
 export interface ISession {
   userId: mongoose.Types.ObjectId;
-  refreshToken: string;
+  refreshTokenHash: string;
+  usedRefreshTokenHashes: string[];
+  generation: number;
   userAgent?: string;
   ipAddress?: string;
   createdAt: Date;
   expiresAt: Date;
+  revokedAt?: Date;
 }
 
 export type SessionDocument = HydratedDocument<ISession>;
@@ -19,10 +22,20 @@ const sessionSchema = new Schema<ISession>(
       required: true,
       index: true
     },
-    refreshToken: {
+    refreshTokenHash: {
       type: String,
       required: true,
       unique: true
+    },
+    usedRefreshTokenHashes: {
+      type: [String],
+      default: []
+    },
+    generation: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0
     },
     userAgent: String,
     ipAddress: {
@@ -37,7 +50,8 @@ const sessionSchema = new Schema<ISession>(
       type: Date,
       required: true,
       expires: 0
-    }
+    },
+    revokedAt: Date
   },
   {
     versionKey: false

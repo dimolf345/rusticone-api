@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Server } from "node:net";
 import { after, afterEach, before, describe, test } from "node:test";
 
@@ -64,7 +64,10 @@ describe("User routes", () => {
     });
     const session = await SessionModel.create({
       userId: adminUser._id,
-      refreshToken: `${testUserIdPrefix}refresh-${randomUUID()}`,
+      refreshTokenHash: createHash("sha256").update(randomUUID()).digest("hex"),
+      usedRefreshTokenHashes: [],
+      generation: 0,
+      userAgent: testUserIdPrefix,
       expiresAt: new Date(Date.now() + 60_000)
     });
     adminAuthHeader = `Bearer ${generateAccessToken(adminUser, session._id.toString())}`;
@@ -73,7 +76,7 @@ describe("User routes", () => {
   after(async () => {
     await UserModel.deleteMany({ email: "admin-route@example.com" });
     await SessionModel.deleteMany({
-      refreshToken: { $regex: `^${testUserIdPrefix}refresh-` }
+      userAgent: testUserIdPrefix
     });
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));

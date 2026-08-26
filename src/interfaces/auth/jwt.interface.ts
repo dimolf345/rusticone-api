@@ -7,5 +7,8 @@ export interface IAccessTokenPayload {
 
 export interface IRefreshTokenPayload {
     userId: string;
+    sid: string;
+    generation: number;
+    jti: string;
     expiresAt: Date;
 }

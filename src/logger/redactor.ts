@@ -5,6 +5,7 @@ export const redaction: LoggerOptions["redact"] = {
     "req.headers.authorization",
     "req.headers.cookie",
     "body.password",
+    "body.refreshToken",
     "body.token",
     "*.creditCard"
   ],

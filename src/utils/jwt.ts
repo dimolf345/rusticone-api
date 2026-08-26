@@ -26,9 +26,13 @@ export function generateAccessToken(user: UserDocument, sessionId: string): stri
   );
 }
 
-export function generateRefreshToken(user: UserDocument): string {
+function signRefreshToken(
+  userId: string,
+  sessionId: string,
+  generation: number
+): string {
   return jwt.sign(
-    { userId: user._id.toString() },
+    { userId, sid: sessionId, generation },
     getSecret("JWT_REFRESH_SECRET"),
     {
       expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN ??
@@ -36,6 +40,26 @@ export function generateRefreshToken(user: UserDocument): string {
       jwtid: randomUUID()
     }
   );
+}
+
+function isObjectId(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f\d]{24}$/i.test(value);
+}
+
+export function generateRefreshToken(
+  user: UserDocument,
+  sessionId: string,
+  generation: number
+): string {
+  return signRefreshToken(user._id.toString(), sessionId, generation);
+}
+
+export function generateNextRefreshToken(
+  userId: string,
+  sessionId: string,
+  generation: number
+): string {
+  return signRefreshToken(userId, sessionId, generation);
 }
 
 export function verifyAccessToken(token: string): IAccessTokenPayload {
@@ -58,14 +82,23 @@ export function verifyRefreshToken(token: string): IRefreshTokenPayload {
 
   if (
     !isJwtPayload(payload) ||
-    typeof payload.userId !== "string" ||
-    typeof payload.exp !== "number"
+    !isObjectId(payload.userId) ||
+    !isObjectId(payload.sid) ||
+    !Number.isInteger(payload.generation) ||
+    payload.generation < 0 ||
+    typeof payload.jti !== "string" ||
+    payload.jti.length === 0 ||
+    typeof payload.exp !== "number" ||
+    !Number.isInteger(payload.exp)
   ) {
     throw new Error("Invalid refresh token payload");
   }
 
   return {
     userId: payload.userId,
+    sid: payload.sid,
+    generation: payload.generation,
+    jti: payload.jti,
     expiresAt: new Date(payload.exp * 1000)
   };
 }
