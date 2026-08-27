@@ -175,7 +175,7 @@ export async function refreshToken(
   const token = parseRefreshCookie(request);
 
   if (!token) {
-    throw invalidRefreshToken(response);
+    throw new BadRequestError("No refresh token provided");
   }
 
   request.log.info("Refreshing access token");
