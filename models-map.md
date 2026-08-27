@@ -121,6 +121,7 @@ classDiagram
 - Used by local and Google auth flows.
 - Fields include identity, role, auth metadata, and timestamps.
 - `email`: required, unique, trimmed, lowercased, and validated with the shared basic email pattern `^[^\s@]+@[^\s@]+\.[^\s@]+$`; standard plus-addresses are accepted.
+- `username`: required for admins and optional for customers; uniqueness is enforced with a partial index (`partialFilterExpression: { username: { $type: "string" } }`) so customers without a username do not collide on a `null` value.
 
 ### Session
 - Stores one stable refresh-token family per authenticated session; raw tokens are never persisted.

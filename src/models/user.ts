@@ -68,7 +68,6 @@ const userSchema = new Schema<IStoredUser, UserModelType, IUserMethods>(
         return this.role === USER_ROLES.Admin;
       },
       trim: true,
-      unique: true,
       lowercase: true
     },
     deliveryAddress: {
@@ -141,6 +140,13 @@ const userSchema = new Schema<IStoredUser, UserModelType, IUserMethods>(
       transform: renameMongoId
     }
   }
+);
+
+// Enforce username uniqueness only for documents that actually have one
+// (admins); customers without a username must not collide on a null value.
+userSchema.index(
+  { username: 1 },
+  { unique: true, partialFilterExpression: { username: { $type: "string" } } }
 );
 
 userSchema.pre("save", async function (this: UserDocument) {

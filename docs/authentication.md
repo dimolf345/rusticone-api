@@ -57,6 +57,12 @@ Reusing any historical refresh token revokes the entire stable family by setting
 
 Access-token authentication is stateful: signature and expiry are checked, then MongoDB validates the token's `sid`, `userId`, expiry, and absence of `revokedAt`. Logout and reuse revocation therefore invalidate access immediately rather than waiting for the JWT lifetime.
 
+## Startup Index Synchronization
+
+On a successful database connection the API calls `syncIndexes()` for every registered model. This aligns the live collections with the current schemas and, crucially, drops obsolete indexes left behind by past schema changes. A stale unique index on the removed session `refreshToken` field previously caused every session document to share a `null` value, so only the first login could persist a session and any later login failed with an `E11000 duplicate key` `500`. Synchronizing indexes at startup removes that index and prevents the class of failure.
+
+Set `DB_SYNC_INDEXES=false` to skip synchronization (for example against very large collections where index rebuilds must be scheduled manually). Synchronization failures are logged and never block startup.
+
 Logout clears the browser cookie on every call. Missing, malformed, already revoked, or unknown credentials are idempotent and return `204`. If a parseable token identifies a session but MongoDB revocation fails, the cookie is still cleared and the operational failure returns `500`.
 
 ## Redis Fallback

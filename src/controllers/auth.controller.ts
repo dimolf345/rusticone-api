@@ -1,4 +1,4 @@
-import { request, response, type Request, type Response } from "express";
+import { type Request, type Response } from "express";
 
 import {
   AUTH_PROVIDERS,
@@ -6,6 +6,7 @@ import {
 } from "../models/index.js";
 import { generateAccessToken, verifyRefreshToken } from "../utils/jwt.js";
 
+import { REFRESH_COOKIE_NAME, getClearRefreshCookieOptions, getRefreshCookieOptions } from "../config/auth.js";
 import {
   BadRequestError,
   ConflictError,
@@ -17,6 +18,7 @@ import type {
   IGoogleAuthRequestBody,
   IGoogleAuthServiceDependencies
 } from "../interfaces/auth/index.js";
+import { BASIC_EMAIL_PATTERN } from "../models/user.js";
 import { authenticateWithGoogle } from "../services/auth.service.js";
 import {
   createSession,
@@ -24,8 +26,6 @@ import {
   rotateRefreshToken
 } from "../services/session.service.js";
 import { parseRefreshCookie } from "../utils/cookies.js";
-import { REFRESH_COOKIE_NAME, getRefreshCookieOptions, getClearRefreshCookieOptions } from "../config/auth.js";
-import { BASIC_EMAIL_PATTERN } from "../models/user.js";
 
 function setRefreshCookie(response: Response, refreshToken: string, expiresAt?: Date): void {
   const synchronizedExpiry = expiresAt ?? verifyRefreshToken(refreshToken).expiresAt;
@@ -114,7 +114,6 @@ export async function register(
     request.log.info({ userId: user._id.toString() }, "Local user registered");
     response.status(201).json({
       accessToken: generateAccessToken(user, sessionId),
-      refreshToken,
       user: user.toJSON()
     });
   } catch (error) {
@@ -165,7 +164,6 @@ export async function login(
   request.log.info({ userId: user._id.toString() }, "Local user authenticated");
   response.json({
     accessToken: generateAccessToken(user, sessionId),
-    refreshToken,
     user: user.toJSON()
   });
 }
