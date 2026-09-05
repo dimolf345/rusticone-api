@@ -44,6 +44,11 @@ if (process.env.NODE_ENV !== "production") {
   app.use(LOCAL_UPLOAD_ROUTE, express.static(path.resolve(LOCAL_UPLOAD_DIR)));
 }
 
+// To avoid reponse 404 when deploying the application on Render or any other deployment platform
+app.get("/", (_request, response) => {
+  response.redirect("/api/health/");
+});
+
 app.get("/openapi.json", (_request, response) => {
   response.json(openApiDocument);
 });
