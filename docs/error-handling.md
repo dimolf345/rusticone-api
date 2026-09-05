@@ -9,8 +9,20 @@ always receive a consistent, safe JSON payload.
 
 - `src/errors/`: the `AppError` base class and HTTP-specific subclasses.
 - `src/middleware/errorHandler.ts`: the global Express error handler.
+- `src/middleware/notFoundHandler.ts`: catch-all for unmatched routes (JSON 404).
 - `src/utils/asyncHandler.ts`: wrapper that forwards async rejections to Express.
+- `src/utils/processErrorHandlers.ts`: process-level net for fatal errors.
 - `src/logger/`: the Pino logger and request logger (see `docs/logging.md`).
+
+The layers wrap the application from the inside out:
+
+1. **Typed errors** thrown by controllers/services.
+2. **`asyncHandler`** forwards rejected promises inside a request to Express.
+3. **`notFoundHandler`** turns any unmatched route into a `NotFoundError`.
+4. **`errorHandler`** normalizes every error into a safe JSON response.
+5. **`processErrorHandlers`** catch anything that still escaped the request
+   lifecycle (for example a rejected Redis promise in background work) so the
+   process logs a meaningful message and shuts down instead of dying silently.
 
 ## Error Classes
 
@@ -93,6 +105,37 @@ router.get(
   environments. Unexpected production errors return the generic
   `"Internal Server Error"` message and **never** expose stack traces.
 
+## Unmatched Routes
+
+`notFoundHandler` is registered in `src/app.ts` after every router but before
+`errorHandler`. Any request that matches no route is converted into a
+`NotFoundError` (`Cannot <METHOD> <URL>`) so clients receive the same JSON
+envelope as every other error instead of Express's default HTML 404.
+
+## Process-Level Safety Net
+
+`registerProcessErrorHandlers` is wired in `src/server.ts` during startup. It
+attaches listeners for the two Node.js events that represent truly unhandled
+failures:
+
+- `uncaughtException` — a synchronous throw with no surrounding `try/catch`.
+- `unhandledRejection` — a rejected promise nobody awaited or `.catch`-ed
+  (e.g. a background Redis operation failing when the server cannot reach Redis).
+
+Both funnel into a single fatal path that:
+
+1. Logs the serialized error at `fatal` with an `origin` field identifying the
+   triggering event, so the operator finally sees a meaningful message.
+2. Runs a bounded, best-effort graceful shutdown (close the HTTP server,
+   disconnect MongoDB and Redis). A failing or slow shutdown cannot hang the
+   process because it races a timeout.
+3. Exits the process with code `1`.
+
+A re-entrancy guard ensures a second fatal event while shutting down does not
+restart the flow. The factory `createProcessErrorHandlers` accepts injectable
+`logger`, `shutdown`, and `exit` dependencies so the behavior is unit-tested
+without terminating the test runner.
+
 ## Integration
 
 The strategy is wired through the existing layers:
@@ -113,8 +156,15 @@ The strategy is wired through the existing layers:
 Run the focused error-handling tests with:
 
 ```sh
-npx tsx --test src/errors/AppError.test.ts src/middleware/errorHandler.test.ts src/utils/asyncHandler.test.ts
+npx tsx --test \
+  src/errors/AppError.test.ts \
+  src/middleware/errorHandler.test.ts \
+  src/middleware/notFoundHandler.test.ts \
+  src/utils/asyncHandler.test.ts \
+  src/utils/processErrorHandlers.test.ts
 ```
 
 They cover status-code/label derivation, operational vs. unexpected logging
-levels, production message sanitization, and async rejection forwarding.
+levels, production message sanitization, async rejection forwarding, the JSON
+404 for unmatched routes, and the fatal-error path (fatal logging, graceful
+shutdown, exit code, and the re-entrancy guard).

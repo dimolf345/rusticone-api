@@ -9,6 +9,7 @@ import { connectDatabase } from "./config/database.js";
 import { verifyMailer } from "./config/mailer.js";
 import { disconnectRedis } from "./config/redis.js";
 import { logger } from "./logger/index.js";
+import { registerProcessErrorHandlers } from "./utils/processErrorHandlers.js";
 
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST ?? "0.0.0.0";
@@ -22,6 +23,21 @@ async function startServer(): Promise<void> {
   const server: Server = app.listen(port, host, () => {
     logger.info({ host, port }, "Server listening");
   });
+
+  // Releases every external resource. Reused by signal-based shutdown and by
+  // the process-level fatal error handlers.
+  const closeResources = async (): Promise<void> => {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+    await mongoose.disconnect();
+    logger.info("Mongoose disconnected successfully");
+    await disconnectRedis();
+  };
+
+  // Outermost safety net: log and shut down on any error that escaped the
+  // request lifecycle (e.g. a rejected Redis promise) instead of dying silently.
+  registerProcessErrorHandlers({ logger, shutdown: closeResources });
 
   // Handle graceful shutdown on SIGTERM/SIGINT
   const shutdownHandler = async (signal: string) => {
