@@ -1,45 +1,59 @@
-import type { Request, Response } from "express";
+import { type Request, type Response } from "express";
 
 import {
   AUTH_PROVIDERS,
-  SessionModel,
   UserModel
 } from "../models/index.js";
-import type { UserDocument } from "../models/user.js";
 import { generateAccessToken, verifyRefreshToken } from "../utils/jwt.js";
 
-import type {
-  IAuthenticatedRequest,
-  IGoogleAuthRequestBody,
-  IGoogleAuthServiceDependencies
-} from "../interfaces/auth/index.js";
-import { authenticateWithGoogle } from "../services/auth.service.js";
+import { REFRESH_COOKIE_NAME, getClearRefreshCookieOptions, getRefreshCookieOptions } from "../config/auth.js";
 import {
-  createSession,
-  invalidateSessionCache,
-  revokeSessionsFromOtherIps
-} from "../services/session.service.js";
-import {
-  AppError,
   BadRequestError,
   ConflictError,
   NotFoundError,
   UnauthorizedError
 } from "../errors/index.js";
+import type {
+  IAuthenticatedRequest,
+  IGoogleAuthRequestBody,
+  IGoogleAuthServiceDependencies
+} from "../interfaces/auth/index.js";
+import { BASIC_EMAIL_PATTERN } from "../models/user.js";
+import { authenticateWithGoogle } from "../services/auth.service.js";
+import {
+  createSession,
+  revokeSessionByRefreshToken,
+  rotateRefreshToken
+} from "../services/session.service.js";
+import { parseRefreshCookie } from "../utils/cookies.js";
+
+function setRefreshCookie(response: Response, refreshToken: string, expiresAt?: Date): void {
+  const synchronizedExpiry = expiresAt ?? verifyRefreshToken(refreshToken).expiresAt;
+  response.cookie(
+    REFRESH_COOKIE_NAME,
+    refreshToken,
+    getRefreshCookieOptions(synchronizedExpiry)
+  );
+}
+
+function clearRefreshCookie(response: Response): void {
+  response.clearCookie(REFRESH_COOKIE_NAME, getClearRefreshCookieOptions());
+}
+
+function invalidRefreshToken(response: Response, message = "Refresh token is invalid or expired"): UnauthorizedError {
+  clearRefreshCookie(response);
+  return new UnauthorizedError(message);
+}
 
 export function createGoogleAuthController(dependencies: IGoogleAuthServiceDependencies = {}) {
   return async (request: Request<unknown, unknown, IGoogleAuthRequestBody>, response: Response): Promise<void> => {
     const idToken = request.body.idToken?.trim() ?? "";
 
-    if (!idToken) {
-      throw new BadRequestError("idToken is required");
-    }
-
     request.log.info("Google auth request received");
 
     const { user, isNewUser } = await authenticateWithGoogle(idToken, dependencies);
     const { refreshToken, sessionId } = await createSession(request, user);
-    await revokeSessionsFromOtherIps(user._id, request.ip);
+    setRefreshCookie(response, refreshToken);
 
     request.log.info(
       { email: user.email, isNewUser },
@@ -49,25 +63,10 @@ export function createGoogleAuthController(dependencies: IGoogleAuthServiceDepen
     response.status(isNewUser ? 201 : 200).json({
       message: isNewUser ? "User created with Google sign-up" : "User logged in with Google",
       accessToken: generateAccessToken(user, sessionId),
-      refreshToken,
       isNewUser,
-      user: serializeUser(user)
+      user: user.toJSON()
     });
   }
-}
-
-
-function serializeUser(user: UserDocument) {
-  return {
-    id: user._id.toString(),
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    authProvider: user.authProvider,
-    lastLoginAt: user.lastLoginAt,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt
-  };
 }
 
 export async function register(
@@ -83,11 +82,15 @@ export async function register(
   const name =
     typeof request.body?.name === "string"
       ? request.body.name.trim()
-      : undefined;
+      : "";
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 8) {
+  if (
+    !BASIC_EMAIL_PATTERN.test(email) ||
+    password.length < 8 ||
+    !name
+  ) {
     throw new BadRequestError(
-      "A valid email and password of at least 8 characters are required"
+      "A valid email, password of at least 8 characters, and name are required"
     );
   }
 
@@ -106,13 +109,12 @@ export async function register(
       authProviderUserId: email
     });
     const { refreshToken, sessionId } = await createSession(request, user);
-    await revokeSessionsFromOtherIps(user._id, request.ip);
+    setRefreshCookie(response, refreshToken);
 
     request.log.info({ userId: user._id.toString() }, "Local user registered");
     response.status(201).json({
       accessToken: generateAccessToken(user, sessionId),
-      refreshToken,
-      user: serializeUser(user)
+      user: user.toJSON()
     });
   } catch (error) {
     // Translate the MongoDB duplicate-key error into a typed conflict error.
@@ -157,13 +159,12 @@ export async function login(
   user.lastLoginAt = new Date();
   await user.save();
   const { refreshToken, sessionId } = await createSession(request, user);
-  await revokeSessionsFromOtherIps(user._id, request.ip);
+  setRefreshCookie(response, refreshToken);
 
   request.log.info({ userId: user._id.toString() }, "Local user authenticated");
   response.json({
     accessToken: generateAccessToken(user, sessionId),
-    refreshToken,
-    user: serializeUser(user)
+    user: user.toJSON()
   });
 }
 
@@ -171,65 +172,43 @@ export async function refreshToken(
   request: Request,
   response: Response
 ): Promise<void> {
-  const token =
-    typeof request.body?.refreshToken === "string"
-      ? request.body.refreshToken
-      : "";
+  const token = parseRefreshCookie(request);
 
   if (!token) {
-    throw new BadRequestError("Refresh token is required");
+    throw invalidRefreshToken(response, "No refresh token provided");
   }
 
   request.log.info("Refreshing access token");
+  const rotation = await rotateRefreshToken(token);
 
-  try {
-    const payload = verifyRefreshToken(token);
-    const session = await SessionModel.findOne({
-      refreshToken: token,
-      userId: payload.userId
-    });
-
-    if (!session) {
-      throw new UnauthorizedError("Refresh token is invalid or expired");
-    }
-
-    const user = await UserModel.findById(payload.userId);
-
-    if (!user) {
-      await session.deleteOne();
-      await invalidateSessionCache(session._id.toString());
-      throw new UnauthorizedError("Refresh token user no longer exists");
-    }
-
-    request.log.info({ userId: user._id.toString() }, "Access token refreshed");
-    response.json({ accessToken: generateAccessToken(user, session._id.toString()) });
-  } catch (error) {
-    // Preserve typed application errors; normalize token verification failures.
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new UnauthorizedError("Refresh token is invalid or expired");
+  if (rotation.status !== "rotated") {
+    throw invalidRefreshToken(response);
   }
+
+  const payload = verifyRefreshToken(rotation.refreshToken);
+  const user = await UserModel.findById(payload.userId);
+
+  if (!user) {
+    clearRefreshCookie(response);
+    await revokeSessionByRefreshToken(rotation.refreshToken);
+    throw new UnauthorizedError("Refresh token user no longer exists");
+  }
+
+  setRefreshCookie(response, rotation.refreshToken, rotation.expiresAt);
+  request.log.info({ userId: user._id.toString() }, "Access token refreshed");
+  response.json({ accessToken: generateAccessToken(user, rotation.sessionId) });
 }
 
 export async function logout(
   request: Request,
   response: Response
 ): Promise<void> {
-  const token =
-    typeof request.body?.refreshToken === "string"
-      ? request.body.refreshToken
-      : "";
-
-  if (!token) {
-    throw new BadRequestError("Refresh token is required");
-  }
+  const token = parseRefreshCookie(request);
 
   request.log.info("Logging out session");
-  const session = await SessionModel.findOneAndDelete({ refreshToken: token });
-
-  if (session) {
-    await invalidateSessionCache(session._id.toString());
+  clearRefreshCookie(response);
+  if (token) {
+    await revokeSessionByRefreshToken(token);
   }
 
   request.log.info("Session logged out");
@@ -246,5 +225,5 @@ export async function me(request: Request, response: Response): Promise<void> {
   }
 
   request.log.info({ userId }, "Returning profile for user");
-  response.json({ user: serializeUser(user) });
+  response.json({ user: user.toJSON() });
 }

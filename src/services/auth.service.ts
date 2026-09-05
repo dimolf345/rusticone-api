@@ -19,6 +19,30 @@ type GoogleTokenPayload = {
     email_verified?: boolean;
 };
 
+const GOOGLE_INVALID_TOKEN_ERROR_PREFIXES = [
+    "The verifyIdToken method requires an ID Token",
+    "Wrong number of segments in token:",
+    "Can't parse token envelope:",
+    "Can't parse token payload",
+    "No pem found for envelope:",
+    "Invalid token signature:",
+    "No issue time in token:",
+    "No expiration time in token:",
+    "iat field using invalid format",
+    "exp field using invalid format",
+    "Expiration time too far in future:",
+    "Token used too early,",
+    "Token used too late,",
+    "Invalid issuer,",
+    "Wrong recipient,"
+] as const;
+
+function isGoogleInvalidTokenError(error: unknown): boolean {
+    return error instanceof Error && GOOGLE_INVALID_TOKEN_ERROR_PREFIXES.some(
+        (prefix) => error.message.startsWith(prefix)
+    );
+}
+
 function createGoogleIdTokenVerifier(): (idToken: string) => Promise<IGoogleAuthProfile> {
     const googleClientId = process.env.GOOGLE_CLIENT_ID;
 
@@ -31,10 +55,19 @@ function createGoogleIdTokenVerifier(): (idToken: string) => Promise<IGoogleAuth
         const { OAuth2Client } = await import(googleAuthLibraryModule);
         const client = new OAuth2Client(googleClientId);
 
-        const ticket = await client.verifyIdToken({
-            idToken,
-            audience: googleClientId
-        });
+        let ticket;
+
+        try {
+            ticket = await client.verifyIdToken({
+                idToken,
+                audience: googleClientId
+            });
+        } catch (error) {
+            if (isGoogleInvalidTokenError(error)) {
+                throw new BadRequestError("Unable to verify the Google token");
+            }
+            throw error;
+        }
 
         const payload = ticket.getPayload();
 
@@ -74,7 +107,7 @@ export async function authenticateWithGoogle(
         throw new BadRequestError("idToken is required");
     }
 
-    const profile = await verifyGoogleIdToken(idToken);
+    const profile: IGoogleAuthProfile = await verifyGoogleIdToken(idToken);
     const now = new Date();
 
     logger.info(

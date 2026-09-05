@@ -4,6 +4,13 @@ The user resource is exposed under `/api/users` and reuses the generic CRUD
 behavior described in [base-crud.md](./base-crud.md). Every route requires a
 valid access token (`authMiddleware`).
 
+## Document identifiers
+
+MongoDB documents are serialized with the `_id` field renamed to `id`. API
+responses contain `id` as a string and do not expose `_id`. This shared
+serialization behavior applies to users, products, addons, quotes, and
+sessions, including user responses from authentication endpoints.
+
 ## Route authorization
 
 | Method & path         | Who can call it                                  |

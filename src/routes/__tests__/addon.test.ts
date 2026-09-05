@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Server } from "node:net";
 import { after, afterEach, before, describe, test } from "node:test";
 
@@ -24,7 +24,10 @@ process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
 async function createAuthHeader(user: UserDocument): Promise<string> {
     const session = await SessionModel.create({
         userId: user._id,
-        refreshToken: `${ADDON_TEST_PREFIX}refresh-${randomUUID()}`,
+        refreshTokenHash: createHash("sha256").update(randomUUID()).digest("hex"),
+        usedRefreshTokenHashes: [],
+        generation: 0,
+        userAgent: ADDON_TEST_PREFIX,
         expiresAt: new Date(Date.now() + 60_000)
     });
     return `Bearer ${generateAccessToken(user, session._id.toString())}`;
@@ -76,7 +79,7 @@ describe("Addon routes", () => {
             email: { $regex: "^admin-addon-route-" }
         });
         await SessionModel.deleteMany({
-            refreshToken: { $regex: `^${ADDON_TEST_PREFIX}refresh-` }
+            userAgent: ADDON_TEST_PREFIX
         });
     });
 
@@ -106,12 +109,12 @@ describe("Addon routes", () => {
         });
 
         assert.equal(response.status, 201);
-        const created = (await response.json()) as { _id: string; name: string; price: number };
-        assert.ok(created._id);
+        const created = (await response.json()) as { id: string; name: string; price: number };
+        assert.ok(created.id);
         assert.equal(created.name, `${ADDON_TEST_PREFIX}burrata`);
         assert.equal(created.price, 3.5);
 
-        const dbAddon = await AddonModel.findById(created._id).lean().exec();
+        const dbAddon = await AddonModel.findById(created.id).lean().exec();
         assert.ok(dbAddon);
         assert.equal(dbAddon.name, `${ADDON_TEST_PREFIX}burrata`);
     });
@@ -175,8 +178,8 @@ describe("Addon routes", () => {
         });
 
         assert.equal(response.status, 200);
-        const addon = (await response.json()) as { _id: string; name: string };
-        assert.equal(addon._id, String(targetAddon._id));
+        const addon = (await response.json()) as { id: string; name: string };
+        assert.equal(addon.id, String(targetAddon._id));
         assert.equal(addon.name, `${ADDON_TEST_PREFIX}single-item`);
     });
 

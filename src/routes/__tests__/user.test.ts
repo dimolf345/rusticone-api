@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Server } from "node:net";
 import { after, afterEach, before, describe, test } from "node:test";
 
@@ -64,7 +64,10 @@ describe("User routes", () => {
     });
     const session = await SessionModel.create({
       userId: adminUser._id,
-      refreshToken: `${testUserIdPrefix}refresh-${randomUUID()}`,
+      refreshTokenHash: createHash("sha256").update(randomUUID()).digest("hex"),
+      usedRefreshTokenHashes: [],
+      generation: 0,
+      userAgent: testUserIdPrefix,
       expiresAt: new Date(Date.now() + 60_000)
     });
     adminAuthHeader = `Bearer ${generateAccessToken(adminUser, session._id.toString())}`;
@@ -73,7 +76,7 @@ describe("User routes", () => {
   after(async () => {
     await UserModel.deleteMany({ email: "admin-route@example.com" });
     await SessionModel.deleteMany({
-      refreshToken: { $regex: `^${testUserIdPrefix}refresh-` }
+      userAgent: testUserIdPrefix
     });
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));
@@ -106,12 +109,12 @@ describe("User routes", () => {
     });
 
     assert.equal(response.status, 201);
-    const created = (await response.json()) as { _id: string; email: string };
+    const created = (await response.json()) as { id: string; email: string };
     assert.equal(created.email, "user-create@example.com");
-    assert.ok(created._id);
+    assert.ok(created.id);
 
     // Verify record in database
-    const dbUser = await UserModel.findById(created._id).lean().exec();
+    const dbUser = await UserModel.findById(created.id).lean().exec();
     assert.ok(dbUser);
     assert.equal(dbUser.email, "user-create@example.com");
   });
@@ -154,8 +157,8 @@ describe("User routes", () => {
     });
 
     assert.equal(response.status, 200);
-    const fetched = (await response.json()) as { _id: string; email: string };
-    assert.equal(fetched._id, targetUser._id.toString());
+    const fetched = (await response.json()) as { id: string; email: string };
+    assert.equal(fetched.id, targetUser._id.toString());
     assert.equal(fetched.email, "user-get@example.com");
   });
 

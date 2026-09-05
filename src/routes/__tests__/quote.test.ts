@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Server } from "node:net";
 import { after, afterEach, before, describe, test } from "node:test";
 
@@ -25,7 +25,10 @@ process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
 async function createAuthHeader(user: UserDocument): Promise<string> {
     const session = await SessionModel.create({
         userId: user._id,
-        refreshToken: `${QUOTE_TEST_PREFIX}refresh-${randomUUID()}`,
+        refreshTokenHash: createHash("sha256").update(randomUUID()).digest("hex"),
+        usedRefreshTokenHashes: [],
+        generation: 0,
+        userAgent: QUOTE_TEST_PREFIX,
         expiresAt: new Date(Date.now() + 60_000)
     });
     return `Bearer ${generateAccessToken(user, session._id.toString())}`;
@@ -114,7 +117,7 @@ describe("Quote routes", () => {
         await ProductModel.deleteMany({ name: { $regex: `^${QUOTE_TEST_PREFIX}` } });
         await UserModel.deleteMany({ email: { $regex: `^${QUOTE_TEST_PREFIX}` } });
         await SessionModel.deleteMany({
-            refreshToken: { $regex: `^${QUOTE_TEST_PREFIX}refresh-` }
+            userAgent: QUOTE_TEST_PREFIX
         });
     });
 
@@ -184,11 +187,11 @@ describe("Quote routes", () => {
 
         assert.equal(response.status, 200);
         const list = (await response.json()) as {
-            data: Array<{ userId: { _id: string } }>;
+            data: Array<{ userId: { id: string } }>;
             pagination: { total: number };
         };
         assert.equal(list.pagination.total, 1);
-        assert.equal(list.data[0]?.userId._id, customerA._id.toString());
+        assert.equal(list.data[0]?.userId.id, customerA._id.toString());
     });
 
     test("GET /api/quotes - admins see all quotes and can filter by userId", async () => {

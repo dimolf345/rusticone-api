@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Server } from "node:net";
 import { after, afterEach, before, describe, test } from "node:test";
 
@@ -60,7 +60,10 @@ async function createUser(role: "admin" | "customer"): Promise<UserDocument> {
 async function authHeader(user: UserDocument): Promise<string> {
     const session = await SessionModel.create({
         userId: user._id,
-        refreshToken: `${USER_TEST_PREFIX}refresh-${randomUUID()}`,
+        refreshTokenHash: createHash("sha256").update(randomUUID()).digest("hex"),
+        usedRefreshTokenHashes: [],
+        generation: 0,
+        userAgent: USER_TEST_PREFIX,
         expiresAt: new Date(Date.now() + 60_000)
     });
     return `Bearer ${generateAccessToken(user, session._id.toString())}`;
@@ -102,7 +105,7 @@ describe("Upload routes", () => {
         uploadCount = 0;
         await UserModel.deleteMany({ email: { $regex: `^${USER_TEST_PREFIX}` } });
         await SessionModel.deleteMany({
-            refreshToken: { $regex: `^${USER_TEST_PREFIX}refresh-` }
+            userAgent: USER_TEST_PREFIX
         });
         if (createdRedisKeys.length > 0) {
             const client = await getRedisClient();

@@ -1,6 +1,7 @@
 import mongoose, { Schema, type HydratedDocument, type Model } from "mongoose";
 import type { IAdminUser, ICustomerUser, IStoredUser } from "../interfaces/user/index.js";
 import bcrypt from "bcryptjs";
+import { renameMongoId } from "../utils/mongoose.js";
 
 export const USER_ROLES = {
   Admin: "admin",
@@ -12,6 +13,8 @@ export const AUTH_PROVIDERS = {
   Local: "local",
   Google: "google"
 } as const;
+
+export const BASIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 
 interface IUserMethods {
@@ -42,7 +45,7 @@ const userSchema = new Schema<IStoredUser, UserModelType, IUserMethods>(
       lowercase: true,
       unique: true,
       trim: true,
-      match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address.']
+      match: [BASIC_EMAIL_PATTERN, "Please fill a valid email address."]
     },
     name: {
       type: String,
@@ -65,7 +68,6 @@ const userSchema = new Schema<IStoredUser, UserModelType, IUserMethods>(
         return this.role === USER_ROLES.Admin;
       },
       trim: true,
-      unique: true,
       lowercase: true
     },
     deliveryAddress: {
@@ -133,8 +135,18 @@ const userSchema = new Schema<IStoredUser, UserModelType, IUserMethods>(
   },
   {
     timestamps: true,
-    versionKey: false
+    versionKey: false,
+    toJSON: {
+      transform: renameMongoId
+    }
   }
+);
+
+// Enforce username uniqueness only for documents that actually have one
+// (admins); customers without a username must not collide on a null value.
+userSchema.index(
+  { username: 1 },
+  { unique: true, partialFilterExpression: { username: { $type: "string" } } }
 );
 
 userSchema.pre("save", async function (this: UserDocument) {

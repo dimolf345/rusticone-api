@@ -32,11 +32,14 @@ classDiagram
     class Session {
         +ObjectId _id
         +ObjectId userId
-        +string refreshToken
+        +string refreshTokenHash
+        +string[] usedRefreshTokenHashes
+        +number generation
         +string userAgent
         +string ipAddress
         +Date createdAt
         +Date expiresAt
+        +Date revokedAt
     }
 
     class Product {
@@ -117,13 +120,23 @@ classDiagram
 - Main authentication and profile collection.
 - Used by local and Google auth flows.
 - Fields include identity, role, auth metadata, and timestamps.
+- `email`: required, unique, trimmed, lowercased, and validated with the shared basic email pattern `^[^\s@]+@[^\s@]+\.[^\s@]+$`; standard plus-addresses are accepted.
+- `username`: required for admins and optional for customers; uniqueness is enforced with a partial index (`partialFilterExpression: { username: { $type: "string" } }`) so customers without a username do not collide on a `null` value.
 
 ### Session
-- Stores refresh tokens for authenticated users.
-- `userId` references the `User` collection and is indexed.
-- `ipAddress` is indexed to support revoking a user's sessions from other IPs on login.
+- Stores one stable refresh-token family per authenticated session; raw tokens are never persisted.
+- `_id`: stable family/session `ObjectId`; used as the token `sid` claim.
+- `userId`: required `ObjectId` reference to `User`; indexed.
+- `refreshTokenHash`: required, unique SHA-256 hash of the active refresh token; unique index.
+- `usedRefreshTokenHashes`: string array, default `[]`; historical hashes used for replay detection.
+- `generation`: required non-negative number, default `0`; atomically increments on rotation.
+- `userAgent`: optional observational string.
+- `ipAddress`: optional observational string; indexed, but never used for authorization or revocation.
+- `createdAt`: date with `Date.now` default. The schema does not use automatic timestamps.
+- `expiresAt`: required date with TTL index `expireAfterSeconds: 0`.
+- `revokedAt`: optional date; its presence invalidates the complete family.
 - Each access token is bound to a session `_id` via its `sid` claim.
-- `expiresAt` is configured to expire automatically.
+- Schema `versionKey` is disabled.
 
 ### Product
 - Represents a menu product.

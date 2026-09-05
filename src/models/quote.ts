@@ -6,6 +6,7 @@ import {
     QUOTE_STATUS
 } from "../interfaces/quotes/quote.interface.js";
 import { USER_ROLES } from "./user.js";
+import { renameMongoId } from "../utils/mongoose.js";
 
 const commentSchema = new Schema(
     {
@@ -63,7 +64,11 @@ const quoteSchema = new Schema<IStoredQuote>(
         // Soft-delete marker; excluded from every read path.
         deletedAt: { type: Date, default: null, index: true }
     },
-    { timestamps: true, versionKey: false }
+    {
+        timestamps: true,
+        versionKey: false,
+        toJSON: { transform: renameMongoId }
+    }
 );
 
 type QuoteModelType = Model<IStoredQuote>;
