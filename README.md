@@ -39,6 +39,9 @@ The test Compose setup uses a separate MongoDB container and database:
 npm test
 ```
 
+The test API is built as the `rusticone-api-test` image. The production image
+(`rusticone-catering-api`) remains dedicated to running the backend server.
+
 The test MongoDB is exposed on host port `27018`, while development MongoDB
 continues to use port `27017`. The Compose test API connects to MongoDB using
 the internal address `mongo-test:27017`.

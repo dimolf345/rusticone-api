@@ -27,7 +27,8 @@ services:
       timeout: 5s
       retries: 10
 
-  api:
+  tests:
+    image: rusticone-api-test
     build:
       context: .
       dockerfile: Dockerfile.dev
