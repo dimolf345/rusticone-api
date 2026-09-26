@@ -15,6 +15,7 @@ This keeps the structure predictable without adding unnecessary layers.
 ## Scripts
 
 - `npm run dev` - start the server in watch mode
+- `npm run dev:prod` - start the server in watch mode with production environment variables (`.env.production`)
 - `npm run build` - compile TypeScript to `dist/`
 - `npm run start` - run the compiled server
 - `npm run typecheck` - run the TypeScript compiler without emitting files
