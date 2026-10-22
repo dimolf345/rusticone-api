@@ -15,4 +15,6 @@ export interface IUploadResult {
 export interface IUploadService {
   /** Uploads image buffers to storage and caches their URLs under a new session id. */
   uploadTemp(files: IUploadedFile[]): Promise<IUploadResult>;
+  /** Resolves the absolute file path of a locally uploaded temporary image. */
+  getTempImagePath(filename: string): Promise<string>;
 }

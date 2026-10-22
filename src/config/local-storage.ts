@@ -8,7 +8,7 @@ import { logger } from "../logger/index.js";
 export const LOCAL_UPLOAD_DIR = process.env.UPLOAD_LOCAL_DIR ?? "uploads";
 
 /** Public route prefix under which the local upload folder is served. */
-export const LOCAL_UPLOAD_ROUTE = "/uploads";
+export const LOCAL_UPLOAD_ROUTE = "/api/uploads";
 
 function getPublicBaseUrl(): string {
   return process.env.PUBLIC_BASE_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
@@ -43,7 +43,7 @@ function detectImageExtension(buffer: Buffer): string {
 
 /**
  * Persists an image buffer to the local upload folder and returns a URL that
- * resolves through the statically served `/uploads` route. Used in development
+ * resolves through the upload router in development. Used in development
  * as a drop-in replacement for the Cloudinary uploader.
  */
 export async function uploadBufferToLocal(

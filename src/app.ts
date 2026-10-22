@@ -1,10 +1,8 @@
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
-import path from "node:path";
 
 import { getAllowedFrontendOrigins } from "./config/auth.js";
-import { LOCAL_UPLOAD_DIR, LOCAL_UPLOAD_ROUTE } from "./config/local-storage.js";
 import { loggingMiddleware } from "./logger/middleware.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFoundHandler } from "./middleware/notFoundHandler.js";
@@ -37,12 +35,6 @@ app.use(
   })
 );
 app.use(express.json());
-
-// Serve locally-stored uploads in non-production, where images are written to
-// disk instead of Cloudinary.
-if (process.env.NODE_ENV !== "production") {
-  app.use(LOCAL_UPLOAD_ROUTE, express.static(path.resolve(LOCAL_UPLOAD_DIR)));
-}
 
 // To avoid reponse 404 when deploying the application on Render or any other deployment platform
 app.get("/", (_request, response) => {
