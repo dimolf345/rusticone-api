@@ -230,7 +230,7 @@ export const openApiDocument = {
       post: {
         summary: "Pre-upload product images",
         description:
-          "Streams one or more image files to Cloudinary, caches the resulting secure URLs in Redis under a short-lived upload session (1 hour TTL), and returns the session id to reference when creating a product. Admin only.",
+          "Streams one or more image files to Cloudinary (or stores them locally in non-production), caches the resulting secure URLs in Redis under a short-lived upload session (1 hour TTL), and returns the session id to reference when creating a product. Admin only.",
         tags: ["uploads"],
         security: [{ bearerAuth: [] }],
         requestBody: {
@@ -265,6 +265,37 @@ export const openApiDocument = {
           401: { description: "Access token is missing, invalid, or its session was revoked" },
           403: { description: "The authenticated user is not an admin" },
           503: { description: "Image upload storage (Redis) is unavailable" }
+        }
+      }
+    },
+    "/api/uploads/temp-catering/{filename}": {
+      get: {
+        summary: "Retrieve a locally uploaded temporary image (development only)",
+        description:
+          "Streams an image file from the local uploads/temp-catering directory. Available only outside of production so the frontend can retrieve locally uploaded images during development.",
+        tags: ["uploads"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "filename",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+            description: "File name of the locally uploaded temporary image"
+          }
+        ],
+        responses: {
+          200: {
+            description: "Image file stream",
+            content: {
+              "image/*": {
+                schema: { type: "string", format: "binary" }
+              }
+            }
+          },
+          400: { $ref: "#/components/responses/BadRequest" },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          404: { description: "Image not found or endpoint disabled in production" }
         }
       }
     },
@@ -542,7 +573,7 @@ export const openApiDocument = {
           imageUrls: {
             type: "array",
             items: { type: "string", format: "uri" },
-            description: "Cloudinary secure URLs for the uploaded images"
+            description: "Cloudinary secure URLs (or local upload URLs in development) for the uploaded images"
           }
         }
       },
