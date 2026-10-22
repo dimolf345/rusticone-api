@@ -8,6 +8,10 @@ This project is intentionally small, so organize code by scope rather than by fe
 
 Keep the structure simple and avoid introducing extra layers unless the codebase clearly needs them.
 
+## Git & Pull Requests
+
+The target base branch for Pull Requests in this project must always be `rc/1`.
+
 ## Interface naming convention
 
 All TypeScript interfaces must use the `I` prefix in their names, such as `IUser`, `IStoredUser`, `IAuthRouterDependencies`, and `IBaseServiceInterface`.

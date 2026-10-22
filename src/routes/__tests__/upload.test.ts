@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
+import { rm } from "node:fs/promises";
 import type { Server } from "node:net";
+import path from "node:path";
 import { after, afterEach, before, describe, test } from "node:test";
 
 import express, { type Express } from "express";
@@ -8,13 +10,15 @@ import mongoose from "mongoose";
 import pino from "pino";
 
 import { connectDatabase } from "../../config/database.js";
+import { uploadBufferToLocal } from "../../config/local-storage.js";
 import { disconnectRedis, getRedisClient } from "../../config/redis.js";
 import type { ICloudinaryUploader } from "../../interfaces/upload/index.js";
 import { createLoggingMiddleware } from "../../logger/middleware.js";
 import { errorHandler } from "../../middleware/errorHandler.js";
+import { notFoundHandler } from "../../middleware/notFoundHandler.js";
 import { SessionModel } from "../../models/session.js";
 import { UserModel, type UserDocument } from "../../models/user.js";
-import { UploadService } from "../../services/upload.service.js";
+import { TEMP_FOLDER, UploadService } from "../../services/upload.service.js";
 import { generateAccessToken } from "../../utils/jwt.js";
 import { createUploadRouter } from "../upload.js";
 
@@ -23,6 +27,7 @@ process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
 
 const USER_TEST_PREFIX = "upload-route-test-";
 const createdRedisKeys: string[] = [];
+const createdLocalFiles: string[] = [];
 
 let uploadCount = 0;
 const fakeUploader: ICloudinaryUploader = async () => {
@@ -39,6 +44,7 @@ function createTestApp(): Express {
         "/api/uploads",
         createUploadRouter({ service: new UploadService(fakeUploader) })
     );
+    app.use(notFoundHandler);
     app.use(errorHandler);
     return app;
 }
@@ -112,6 +118,12 @@ describe("Upload routes", () => {
             await client.del(createdRedisKeys);
             createdRedisKeys.length = 0;
         }
+        if (createdLocalFiles.length > 0) {
+            await Promise.all(
+                createdLocalFiles.map((filePath) => rm(filePath, { force: true }))
+            );
+            createdLocalFiles.length = 0;
+        }
     });
 
     test("POST /api/uploads/temp - pre-uploads images and caches the URLs in Redis", async () => {
@@ -168,5 +180,71 @@ describe("Upload routes", () => {
         });
 
         assert.equal(response.status, 403);
+    });
+
+    test("GET /api/uploads/temp-catering/:filename - returns the uploaded image in development for an authenticated user", async () => {
+        const customer = await createUser("customer");
+        const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+        const { secure_url } = await uploadBufferToLocal(pngBytes, TEMP_FOLDER);
+        const filename = path.basename(new URL(secure_url).pathname);
+
+        const service = new UploadService();
+        createdLocalFiles.push(await service.getTempImagePath(filename));
+
+        const response = await fetch(`${baseUrl}/temp-catering/${filename}`, {
+            method: "GET",
+            headers: { authorization: await authHeader(customer) }
+        });
+
+        assert.equal(response.status, 200);
+        assert.equal(
+            response.headers.get("cross-origin-resource-policy"),
+            "cross-origin"
+        );
+        const body = Buffer.from(await response.arrayBuffer());
+        assert.deepEqual(body, pngBytes);
+    });
+
+    test("GET /api/uploads/temp-catering/:filename - returns 401 when unauthenticated", async () => {
+        const response = await fetch(`${baseUrl}/temp-catering/missing.png`, {
+            method: "GET"
+        });
+
+        assert.equal(response.status, 401);
+    });
+
+    test("GET /api/uploads/temp-catering/:filename - returns 404 when the image does not exist", async () => {
+        const customer = await createUser("customer");
+
+        const response = await fetch(`${baseUrl}/temp-catering/non-existent.png`, {
+            method: "GET",
+            headers: { authorization: await authHeader(customer) }
+        });
+
+        assert.equal(response.status, 404);
+    });
+
+    test("GET /api/uploads/temp-catering/:filename - returns 404 in production environment", async () => {
+        const customer = await createUser("customer");
+        const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+        const { secure_url } = await uploadBufferToLocal(pngBytes, TEMP_FOLDER);
+        const filename = path.basename(new URL(secure_url).pathname);
+
+        const service = new UploadService();
+        createdLocalFiles.push(await service.getTempImagePath(filename));
+
+        const previousNodeEnv = process.env.NODE_ENV;
+        process.env.NODE_ENV = "production";
+
+        try {
+            const response = await fetch(`${baseUrl}/temp-catering/${filename}`, {
+                method: "GET",
+                headers: { authorization: await authHeader(customer) }
+            });
+
+            assert.equal(response.status, 404);
+        } finally {
+            process.env.NODE_ENV = previousNodeEnv;
+        }
     });
 });
