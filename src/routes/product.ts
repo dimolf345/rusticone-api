@@ -15,7 +15,7 @@ export function createProductsRouter(controller = new ProductsController()) {
     //:id
     router.get("/:id", asyncHandler(controller.findOne));
     router.patch("/:id", isAdminMiddleware, asyncHandler(controller.update));
-
+    router.delete("/:id", isAdminMiddleware, asyncHandler(controller.delete));
     return router;
 }
 
