@@ -4,13 +4,17 @@ Product images are uploaded in two stages so the client can upload files before
 the product form is submitted:
 
 1. **Pre-upload** — `POST /api/uploads/temp` streams image files to Cloudinary
-   and caches the resulting secure URLs in Redis under a short-lived
-   `uploadSessionId` (1 hour TTL).
+   (or writes them to disk in non-production) and caches the resulting URLs in
+   Redis under a short-lived `uploadSessionId` (1 hour TTL).
 2. **Product creation** — `POST /api/products` accepts the `uploadSessionId`,
    moves the cached URLs into `productImages`, persists the product, and deletes
    the Redis session so the URLs can only be consumed once.
 
-Both endpoints are admin only (`authMiddleware` + `isAdminMiddleware`).
+`POST /api/uploads/temp` and `POST /api/products` are admin only
+(`authMiddleware` + `isAdminMiddleware`).
+
+In development / non-production environments, locally uploaded images are served
+via `GET /api/uploads/temp-catering/:filename` (protected by `authMiddleware`).
 
 ## Endpoints
 
@@ -21,8 +25,8 @@ Multipart request that accepts up to 5 image files under the `images` field
 
 Request (`multipart/form-data`):
 
-| Field    | Type       | Notes                          |
-| -------- | ---------- | ------------------------------ |
+| Field    | Type   | Notes                          |
+| -------- | ------ | ------------------------------ |
 | `images` | file[] | 1–5 image files, 5 MB per file |
 
 Response `200 OK`:
@@ -43,6 +47,22 @@ Errors:
 | 401    | Missing/invalid access token                     |
 | 403    | Authenticated user is not an admin               |
 | 503    | Redis (upload storage) is unreachable            |
+
+### GET /api/uploads/temp-catering/:filename (Development Only)
+
+Streams a locally stored image from `uploads/temp-catering/<filename>`. This
+endpoint is only registered outside of production (`NODE_ENV !== "production"`)
+and requires a valid access token (`authMiddleware`). Sets
+`Cross-Origin-Resource-Policy: cross-origin` so the frontend can display the
+image across origins in development.
+
+Errors:
+
+| Status | Cause                                                       |
+| ------ | ----------------------------------------------------------- |
+| 400    | Invalid filename                                            |
+| 401    | Missing/invalid access token                                |
+| 404    | File does not exist or endpoint is called in `production`   |
 
 ### POST /api/products
 
@@ -85,8 +105,8 @@ The uploader is selected by `NODE_ENV` (`src/config/image-uploader.ts`):
   returns `secure_url` CDN links.
 - **Development / test** writes images to a local folder
   (`UPLOAD_LOCAL_DIR`, default `./uploads`) under a `temp-catering`
-  subfolder and returns URLs served through the static `/uploads` route
-  (for example `http://localhost:3000/uploads/temp-catering/<uuid>.png`). No
+  subfolder and returns URLs served through the upload router
+  (for example `http://localhost:3000/api/uploads/temp-catering/<uuid>.png`). No
   Cloudinary credentials are required for local development.
 
 - Redis keys use the `temp_images:<uploadSessionId>` pattern with a 3600-second TTL.
@@ -111,7 +131,7 @@ The uploader is selected by `NODE_ENV` (`src/config/image-uploader.ts`):
 The image uploader and the upload service are injectable
 (`IUploadRouterDependencies`, `ICloudinaryUploader`) following the same
 dependency-injection pattern used by the auth router, which keeps tests
-hermetic (no real Cloudinary or disk writes).
+hermetic (no real Cloudinary or disk writes unless testing local storage).
 
 ## Maintenance
 
@@ -131,11 +151,13 @@ Tests run against the test Mongo and Redis containers defined in
 npm test
 ```
 
-- `src/services/upload.service.test.ts` — unit test with a fake
-  Cloudinary uploader and an in-memory session store.
-- `src/routes/upload.test.ts` — integration test hitting
-  `POST /api/uploads/temp` with a fake uploader and real Redis (asserts the
-  session key exists and the non-admin/no-file paths).
-- `src/routes/product.test.ts` — covers product creation with a valid
+- `src/services/__tests__/upload.service.test.ts` — unit tests for uploading
+  buffers with a fake Cloudinary uploader / in-memory session store and
+  resolving local temporary image paths.
+- `src/routes/__tests__/upload.test.ts` — integration tests hitting
+  `POST /api/uploads/temp` and `GET /api/uploads/temp-catering/:filename`
+  against the test database and Redis (covering admin/authenticated access,
+  missing files, and production environment gating).
+- `src/routes/__tests__/product.test.ts` — covers product creation with a valid
   `uploadSessionId` (images attached, key deleted), an expired session (`400`),
   and no session (`201`).

@@ -20,6 +20,17 @@ export function createUploadRouter(dependencies: IUploadRouterDependencies = {})
     asyncHandler(controller.uploadTemp)
   );
 
+  if (process.env.NODE_ENV !== "production") {
+    router.get(
+      "/temp-catering/:filename",
+      asyncHandler(controller.getTempImage)
+    );
+    router.get(
+      "/temp/:filename",
+      asyncHandler(controller.getTempImage)
+    );
+  }
+
   return router;
 }
 
