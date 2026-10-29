@@ -18,6 +18,7 @@ This keeps the structure predictable without adding unnecessary layers.
 - [Uploads](docs/uploads.md)
 - [Users](docs/users.md)
 - [Email notifications](docs/email-notifications.md)
+- [Debugging in Docker](docs/debugging.md)
 
 ## Installation Guide
 
